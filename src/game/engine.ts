@@ -459,13 +459,13 @@ export function eat(g: Game): boolean {
 
 export function specialNeedsTarget(g: Game) {
   const id = activeHero(g).id;
-  return id === 'frauke' || id === 'joern';
+  return id === 'frauke' || id === 'joern' || id === 'nordhexe';
 }
 
 export function canSpecialOn(g: Game, m: Monster) {
   const h = activeHero(g);
   if (!isActive(g, m)) return false;
-  const r = h.id === 'frauke' ? 3 : 1;
+  const r = h.id === 'frauke' ? 3 : h.id === 'nordhexe' ? 4 : 1;
   return dist(h, m) <= r && lineOfSight(g, h, m);
 }
 
@@ -504,6 +504,12 @@ export function special(g: Game, target?: Monster): boolean {
       m.stuck = true; m.blind = true;
       g.fx.push({ t: 'shot', who: hkey(h), target: mkey(m), shot: 'licht' });
     });
+  }
+  if (h.id === 'nordhexe' && target) {
+    log(g, `Piet stürzt sich auf ${MONSTERS[target.kind].name}.`);
+    target.stuck = true; target.blind = true;
+    g.fx.push({ t: 'shot', who: hkey(h), target: mkey(target), shot: 'nordhexe' });
+    damageMonster(g, target, 2);
   }
   if (h.id === 'frauke' && target) {
     log(g, `FlensNetz fesselt ${MONSTERS[target.kind].name}.`);
