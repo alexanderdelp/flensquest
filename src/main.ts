@@ -1,10 +1,11 @@
 import './ui/style.css';
-import { CHAPTERS, HEROES, MONSTERS, PUNKTE_LIMIT, SHOP, type HeroId } from './game/data';
+import { CHAPTERS, HEROES, PUNKTE_LIMIT, SHOP, type HeroId } from './game/data';
 import * as E from './game/engine';
 import type { Campaign, Game } from './game/engine';
+import { Board, type Mark } from './ui/board';
+import { heroSprite, objects, toDataUrl } from './ui/sprites';
 
 const SAVE = 'flensquest:v1';
-const CELL = 40;
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
 let campaign: Campaign | null = load();
@@ -60,7 +61,7 @@ function pick() {
     <div class="cards">${ids.map((id) => {
       const d = HEROES[id];
       return `<button class="card ${picked.includes(id) ? 'on' : ''}" data-hero="${id}" aria-pressed="${picked.includes(id)}">
-        <span class="face" style="background:${d.color}">${d.icon}</span>
+        <img class="face" alt="" src="${toDataUrl(heroSprite(id, [], 0))}">
         <b>${d.name}</b><small>${d.title}</small>
         <span class="stats">❤️ ${d.hp} · ⚔️ ${d.att} · 🛡️ ${d.arm} · 👣 ${d.spd}</span>
         <small>${d.weapon}: ${d.dmg} Schaden, Reichweite ${d.range}</small>
@@ -95,6 +96,7 @@ function chapterIntro() {
 
 function result() {
   const g = game!, c = campaign!, ch = CHAPTERS[g.chapter];
+  view?.stop(); view = null;
   if (g.status === 'lost') {
     html(`<main class="screen narrow">
       <h2>Das war nix</h2>
@@ -132,11 +134,11 @@ function shop() {
     <h2>🛒 Hafenkiosk</h2>
     <p class="lead">Kasse: <b>${c.oere} Öre</b></p>
     <div class="shop">${c.heroes.map((h) => `<section class="shelf">
-      <h3>${HEROES[h.id].icon} ${HEROES[h.id].name} <small>🥪 ${h.food}</small></h3>
+      <h3><img class="dot" alt="" src="${toDataUrl(heroSprite(h.id, h.gear, 0))}"> ${HEROES[h.id].name} <small>🥪 ${h.food}</small></h3>
       ${SHOP.map((s) => {
         const owned = s.once && h.gear.includes(s.id);
         return `<button data-buy="${h.id}:${s.id}" ${owned || c.oere < s.price ? 'disabled' : ''}>
-          ${s.icon} ${s.name} <small>${owned ? 'hast du schon' : `${s.text} · ${s.price} Öre`}</small>
+          <img class="dot" alt="" src="${toDataUrl(objects[s.id]())}"> ${s.name} <small>${owned ? 'hast du schon' : `${s.text} · ${s.price} Öre`}</small>
         </button>`;
       }).join('')}
     </section>`).join('')}</div>
@@ -153,98 +155,68 @@ function shop() {
 
 /* ---------- Spielbrett ---------- */
 
-function tileSvg(g: Game, x: number, y: number): string {
-  const px = x * CELL, py = y * CELL;
-  if (!g.seen[y][x]) return `<rect x="${px}" y="${py}" width="${CELL}" height="${CELL}" class="fog"/>`;
-  const t = g.tiles[y][x];
-  const rect = (cls: string) => `<rect x="${px}" y="${py}" width="${CELL}" height="${CELL}" class="${cls}"/>`;
-  if (t === '#' || t === 'H') return rect('wall');
-  let out = rect((x + y) % 2 ? 'floor' : 'floor alt');
-  if (t === 'D') out += `<rect x="${px + 4}" y="${py + 4}" width="${CELL - 8}" height="${CELL - 8}" rx="4" class="door"/>`;
-  if (t === 'O') out += `<rect x="${px + 14}" y="${py + 14}" width="12" height="12" class="doorOpen"/>`;
+let view: Board | null = null;
+
+function marks(g: Game): Mark[] {
+  const out: Mark[] = [];
+  if (g.status !== 'play') return out;
+  if (!aiming) {
+    for (const k of E.reachable(g).keys()) {
+      const [x, y] = k.split(',').map(Number);
+      out.push({ x, y, kind: 'walk', act: 'move' });
+    }
+    for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
+      if (E.canOpenDoor(g, x, y)) out.push({ x, y, kind: 'use', act: 'door' });
+      if (E.canOpenChest(g, x, y)) out.push({ x, y, kind: 'use', act: 'chest' });
+    }
+  }
+  for (const m of g.monsters) {
+    if (aiming ? E.canSpecialOn(g, m) : E.canAttack(g, m)) {
+      out.push({ x: m.x, y: m.y, kind: 'foe', act: aiming ? 'special' : 'attack' });
+    }
+  }
   return out;
 }
 
-const glyph = (x: number, y: number, s: string, size = 24) =>
-  `<text x="${x * CELL + CELL / 2}" y="${y * CELL + CELL / 2 + size * 0.36}" font-size="${size}" text-anchor="middle">${s}</text>`;
-
-const goalIcon = (g: Game) => { const c = CHAPTERS[g.chapter].goal; return c.type === 'bergen' ? c.icon : ''; };
-
-function boardSvg(g: Game): string {
-  const parts: string[] = [];
-  for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) parts.push(tileSvg(g, x, y));
-  const hot: string[] = [];
-  const mark = (x: number, y: number, cls: string, act: string) =>
-    hot.push(`<rect x="${x * CELL + 2}" y="${y * CELL + 2}" width="${CELL - 4}" height="${CELL - 4}" rx="6" class="hot ${cls}" data-act="${act}" data-x="${x}" data-y="${y}"/>`);
-
-  if (g.exit && g.seen[g.exit.y][g.exit.x]) parts.push(glyph(g.exit.x, g.exit.y, '🚪'));
-  if (g.goal && !g.goalTaken && g.seen[g.goal.y][g.goal.x]) parts.push(glyph(g.goal.x, g.goal.y, goalIcon(g)));
-  for (const c of g.chests) if (g.seen[c.y][c.x]) parts.push(glyph(c.x, c.y, '🧰'));
-
-  const playing = g.status === 'play';
-  if (playing && !aiming) {
-    for (const k of E.reachable(g).keys()) {
-      const [x, y] = k.split(',').map(Number);
-      mark(x, y, 'walk', 'move');
-    }
-    for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
-      if (E.canOpenDoor(g, x, y)) mark(x, y, 'use', 'door');
-      if (E.canOpenChest(g, x, y)) mark(x, y, 'use', 'chest');
-    }
-  }
-  parts.push(...hot.splice(0));
-
-  for (const m of g.monsters) {
-    if (!E.isActive(g, m)) continue;
-    const d = MONSTERS[m.kind];
-    const cx = m.x * CELL + CELL / 2, cy = m.y * CELL + CELL / 2;
-    parts.push(`<circle cx="${cx}" cy="${cy}" r="16" class="tokenM"/>`, glyph(m.x, m.y, d.icon, 20));
-    parts.push(`<rect x="${m.x * CELL + 6}" y="${m.y * CELL + 34}" width="${(28 * m.hp) / m.maxHp}" height="4" class="hpM"/>`);
-    if (m.stuck) parts.push(glyph(m.x, m.y, '🕸️', 14));
-    if (playing && (aiming ? E.canSpecialOn(g, m) : E.canAttack(g, m))) {
-      mark(m.x, m.y, 'foe', aiming ? 'special' : 'attack');
-    }
-  }
-  g.heroes.forEach((h, i) => {
-    if (h.down) { parts.push(glyph(h.x, h.y, '💤', 18)); return; }
-    const d = HEROES[h.id];
-    const cx = h.x * CELL + CELL / 2, cy = h.y * CELL + CELL / 2;
-    parts.push(`<circle cx="${cx}" cy="${cy}" r="17" fill="${d.color}" class="${i === g.turn && playing ? 'tokenH active' : 'tokenH'}"/>`, glyph(h.x, h.y, d.icon, 20));
-  });
-  parts.push(...hot);
-  return `<svg viewBox="0 0 ${g.w * CELL} ${g.h * CELL}" class="board" role="img" aria-label="Spielbrett">${parts.join('')}</svg>`;
+function tapTile(p: { x: number; y: number }) {
+  const g = game;
+  if (!g) return;
+  const mark = marks(g).find((m) => m.x === p.x && m.y === p.y);
+  if (!mark) return;
+  const m = E.monsterAt(g, p.x, p.y);
+  if (mark.act === 'move') E.moveTo(g, p.x, p.y);
+  if (mark.act === 'door') E.openDoor(g, p.x, p.y);
+  if (mark.act === 'chest') E.openChest(g, p.x, p.y);
+  if (mark.act === 'attack' && m) E.attack(g, m);
+  if (mark.act === 'special' && m) { E.special(g, m); aiming = false; }
+  after();
 }
 
-function board() {
+const portrait = (o: E.Hero) => toDataUrl(heroSprite(o.id, o.gear, 0));
+
+function panel() {
   const g = game!, ch = CHAPTERS[g.chapter], h = E.activeHero(g), d = HEROES[h.id];
   const playing = g.status === 'play';
-  html(`<main class="game">
-    <header class="top">
-      <b>⚓ ${ch.title}</b>
-      <span class="punkte" title="Punkte in Flensburg">${Array.from({ length: PUNKTE_LIMIT }, (_, i) => `<i class="${i < g.punkte ? 'on' : ''}"></i>`).join('')} <small>${g.punkte}/${PUNKTE_LIMIT} Punkte</small></span>
-      <span>Runde ${g.round} · 💰 ${g.oere} Öre</span>
-      <button class="mini" data-quit>Menü</button>
-    </header>
-    <div class="table">
-      <div class="boardwrap">${boardSvg(g)}</div>
-      <aside class="side">
-        <p class="goal small">${ch.goalText}${g.goalTaken && ch.goal.type === 'bergen' ? ' ✔ gefunden' : ''}</p>
-        <div class="party">${g.heroes.map((o, i) => `<div class="pc ${i === g.turn && playing ? 'on' : ''} ${o.down ? 'down' : ''}">
-          <span class="dot" style="background:${HEROES[o.id].color}">${HEROES[o.id].icon}</span>
-          <span><b>${HEROES[o.id].name}</b><br><small>❤️ ${o.hp}/${o.maxHp} · 🥪 ${o.food} · ✨ ${o.charges}</small></span>
-        </div>`).join('')}</div>
-        ${playing ? `<p class="turn"><b>${d.name}</b> · ${'🌊'.repeat(g.tiden)}${g.steps ? ` · 👣 ${g.steps}` : ''}</p>` : '<p class="turn">Der Oberpunktezähler stempelt …</p>'}
-        <div class="actions">
-          <button data-search ${playing && g.tiden > 0 ? '' : 'disabled'}>🔎 Suchen</button>
-          <button data-eat ${playing && g.tiden > 0 && h.food > 0 && h.hp < h.maxHp ? '' : 'disabled'}>🥪 Essen</button>
-          <button class="${aiming ? 'on' : ''}" data-special ${playing && E.canSpecial(g) ? '' : 'disabled'} title="${d.specialText}">✨ ${d.special}</button>
-          <button class="primary" data-end ${playing ? '' : 'disabled'}>Zug beenden</button>
-        </div>
-        <ol class="log" aria-live="polite">${g.log.slice(-40).reverse().map((l) => `<li>${l}</li>`).join('')}</ol>
-      </aside>
+  app.querySelector('.top')!.innerHTML = `
+    <b>⚓ ${ch.title}</b>
+    <span class="punkte" title="Punkte in Flensburg">${Array.from({ length: PUNKTE_LIMIT }, (_, i) => `<i class="${i < g.punkte ? 'on' : ''}"></i>`).join('')} <small>${g.punkte}/${PUNKTE_LIMIT} Punkte</small></span>
+    <span>Runde ${g.round} · ${g.oere} Öre</span>
+    <button class="mini" data-quit>Menü</button>`;
+  app.querySelector('.side')!.innerHTML = `
+    <p class="goal small">${ch.goalText}${g.goalTaken && ch.goal.type === 'bergen' ? ' ✔ gefunden' : ''}</p>
+    <div class="party">${g.heroes.map((o, i) => `<div class="pc ${i === g.turn && playing ? 'on' : ''} ${o.down ? 'down' : ''}">
+      <img class="dot" alt="" src="${portrait(o)}">
+      <span><b>${HEROES[o.id].name}</b><br><small>❤️ ${o.hp}/${o.maxHp} · 🥪 ${o.food} · ✨ ${o.charges}</small></span>
+    </div>`).join('')}</div>
+    ${playing ? `<p class="turn"><b>${d.name}</b> · ${'🌊'.repeat(g.tiden)}${g.steps ? ` · 👣 ${g.steps}` : ''}</p>` : '<p class="turn">Der Oberpunktezähler stempelt …</p>'}
+    <div class="actions">
+      <button data-search ${playing && g.tiden > 0 ? '' : 'disabled'}>🔎 Suchen</button>
+      <button data-eat ${playing && g.tiden > 0 && h.food > 0 && h.hp < h.maxHp ? '' : 'disabled'}>🥪 Essen</button>
+      <button class="${aiming ? 'on' : ''}" data-special ${playing && E.canSpecial(g) ? '' : 'disabled'} title="${d.specialText}">✨ ${d.special}</button>
+      <button class="primary" data-end ${playing ? '' : 'disabled'}>Zug beenden</button>
     </div>
-  </main>`);
-  on('[data-quit]', () => { game = null; title(); });
+    <ol class="log" aria-live="polite">${g.log.slice(-40).reverse().map((l) => `<li>${l}</li>`).join('')}</ol>`;
+  on('[data-quit]', () => { view?.stop(); view = null; game = null; title(); });
   on('[data-search]', () => { E.search(g); after(); });
   on('[data-eat]', () => { E.eat(g); after(); });
   on('[data-end]', () => { aiming = false; E.endTurn(g); after(); });
@@ -252,16 +224,24 @@ function board() {
     if (E.specialNeedsTarget(g)) { aiming = !aiming; board(); return; }
     E.special(g); after();
   });
-  app.querySelectorAll<SVGElement>('[data-act]').forEach((el) => el.addEventListener('click', () => {
-    const x = Number(el.dataset.x), y = Number(el.dataset.y), act = el.dataset.act;
-    const m = E.monsterAt(g, x, y);
-    if (act === 'move') E.moveTo(g, x, y);
-    if (act === 'door') E.openDoor(g, x, y);
-    if (act === 'chest') E.openChest(g, x, y);
-    if (act === 'attack' && m) E.attack(g, m);
-    if (act === 'special' && m) { E.special(g, m); aiming = false; }
-    after();
-  }));
+}
+
+function board() {
+  const g = game!;
+  if (!app.querySelector('.game')) {
+    view?.stop();
+    html(`<main class="game">
+      <header class="top"></header>
+      <div class="table">
+        <div class="boardwrap"><canvas class="board" aria-label="Spielbrett"></canvas></div>
+        <aside class="side"></aside>
+      </div>
+    </main>`);
+    view = new Board(app.querySelector<HTMLCanvasElement>('.board')!, tapTile);
+  }
+  view!.game = g;
+  view!.marks = marks(g);
+  panel();
 }
 
 function after() {
