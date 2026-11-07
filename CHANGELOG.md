@@ -3,6 +3,9 @@
 Version major.minor.build: major bei großen Umbrüchen, minor bei neuen Funktionen, build bei jeder sonstigen Änderung.
 Der oberste Eintrag muss zur Version in `package.json` passen; ein Test prüft das.
 
+## 0.6.1
+- Übergabedokument für die Überarbeitung der Grafik: `docs/uebergabe-grafik.md`.
+
 ## 0.6.0
 - Neue Kampagnensprache **Kladde**: Kampagnen und Kapitel als Textdateien mit Plan und Skripten (`wenn tür … aufgeht:`, `zeige`, `rufe` …). Beide Kampagnen liegen jetzt als `kampagnen/*.kladde` vor.
 - Eigene Kampagnen in der Kampagnenauswahl laden, als Datei speichern und entfernen; Fehler erscheinen mit Zeilennummer.
