@@ -92,7 +92,7 @@ function choose() {
 }
 
 function pick() {
-  const ids = Object.keys(HEROES) as HeroId[];
+  const ids = (Object.keys(HEROES) as HeroId[]).filter((id) => !HEROES[id].hidden);
   html(`<main class="screen">
     ${LOGO}
     <h2>Wer geht mit in den Keller?</h2>
@@ -475,10 +475,10 @@ function speakLog(g: Game) {
 
 function fxSound(f: E.Fx, v: Board) {
   if (f.t === 'attack') {
-    play(v.label(f.who) === 'Pommes-Möwe' ? 'gull' : f.shot ? 'shot' : 'swing');
+    play(v.label(f.who) === 'Pommes-Möwe' || f.shot === 'nordhexe' ? 'gull' : f.shot ? 'shot' : 'swing');
     if (!f.hit) play('miss');
   }
-  if (f.t === 'shot') play('shot');
+  if (f.t === 'shot') play(f.shot === 'nordhexe' ? 'gull' : 'shot');
   if (f.t === 'hurt') play('hit');
   if (f.t === 'heal') play('heal');
   if (f.t === 'die') play('die');

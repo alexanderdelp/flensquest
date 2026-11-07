@@ -2,7 +2,7 @@ import type { Fx, Game, Pos } from '../game/engine';
 import { activeHero, chapterOf, hkey, isActive, mkey } from '../game/engine';
 import { HEROES, MONSTERS, type HeroId, type MonsterId } from '../game/data';
 import {
-  SPRITE, THEMES, floorTile, heroDown, heroSprite, monsterSprite, moodOf, objects, wallFace,
+  SPRITE, THEMES, floorTile, heroDown, heroSprite, monsterSprite, moodOf, objects, piet, wallFace,
 } from './sprites';
 import { makeView, project, unproject, type View } from './projection';
 
@@ -17,9 +17,11 @@ interface Vis {
   key: string; x: number; y: number; flip: boolean; walking: boolean;
   dx: number; dy: number; alpha: number; shake: number;
   hero?: HeroId; monster?: MonsterId; hp: number; maxHp: number; down: boolean; stuck: boolean; blind: boolean; gear: string[];
+  /** Piet ist gerade unterwegs zum Gegner. */
+  away?: boolean;
 }
 interface Floater { x: number; y: number; text: string; color: string; start: number; dur: number }
-interface Shot { x: number; y: number; color: string; size: number }
+interface Shot { x: number; y: number; color: string; size: number; gull?: boolean; flip?: boolean }
 
 const SHOT_COLOR: Record<string, string> = {
   frauke: '#dfe9ee', maren: '#fbfbf5', netz: '#f5ebcd', obermeister: '#b5302a', oberarchivar: '#b5302a', schmuggler: '#3f7a3a', kalle: '#7a3a14', fiete: '#2b3a5a', punktepruefer: '#b5302a', proehl: '#9fd8e8', juni: '#ffb545', licht: '#ffe27a',
@@ -413,7 +415,38 @@ export class Board {
     await this.tween(130, (k) => { v.dx = nx * 0.45 * (1 - k); v.dy = ny * 0.45 * (1 - k); });
   }
 
+/** Piet fliegt hin, pikt dreimal und kehrt zurück. */
+  private async peck(v: Vis, t: Vis) {
+    const s: Shot = { x: v.x, y: v.y, color: '#fff', size: 0, gull: true, flip: t.x < v.x };
+    v.away = true;
+    this.shots.push(s);
+    await this.tween(320, (k) => { s.x = v.x + (t.x - v.x) * k; s.y = v.y + (t.y - v.y) * k - Math.sin(k * Math.PI) * 0.6; });
+    await this.tween(360, (k) => { s.y = t.y - Math.abs(Math.sin(k * Math.PI * 3)) * 0.25; });
+    s.flip = !s.flip;
+    await this.tween(300, (k) => { s.x = t.x + (v.x - t.x) * k; s.y = t.y + (v.y - t.y) * k - Math.sin(k * Math.PI) * 0.6; });
+    this.shots = this.shots.filter((o) => o !== s);
+    v.away = false;
+  }
+
+  /** Piet kreist um den Kopf der Nordhexe und landet ab und zu auf ihrer Schulter. */
+  private drawPiet(v: Vis, pos: Pos) {
+    if (v.away || v.down) return;
+    const f = this.p(pos.x + 0.5, pos.y + 0.7), size = f.s * 0.55;
+    const t = this.time + v.x * 997;
+    const sitting = t % 9000 < 2600;
+    let x: number, y: number, flip: boolean, frame: number;
+    if (sitting) {
+      x = f.x + f.s * (v.flip ? -0.3 : 0.3); y = f.y - f.s * 0.78; flip = v.flip; frame = 0;
+    } else {
+      const a = t / 520;
+      x = f.x + Math.cos(a) * f.s * 0.42; y = f.y - f.s * (1.25 + Math.sin(a) * 0.1);
+      flip = Math.sin(a) > 0; frame = Math.floor(t / 120);
+    }
+    this.ctx.drawImage(piet(frame, flip), x - size / 2, y - size / 2, size, size);
+  }
+
   private async fly(v: Vis, t: Vis, kind: string) {
+    if (kind === 'nordhexe') { await this.peck(v, t); return; }
     const s: Shot = { x: v.x, y: v.y, color: SHOT_COLOR[kind] ?? '#fff', size: kind === 'stempel' ? 0.24 : 0.14 };
     this.shots.push(s);
     await this.tween(230, (k) => { s.x = v.x + (t.x - v.x) * k; s.y = v.y + (t.y - v.y) * k; });
@@ -424,6 +457,11 @@ export class Board {
     const { ctx } = this;
     const now = performance.now();
     for (const s of this.shots) {
+      if (s.gull) {
+        const q = this.p(s.x + 0.5, s.y + 0.6, 0.8), size = q.s * 0.6;
+        ctx.drawImage(piet(Math.floor(now / 90), s.flip), q.x - size / 2, q.y - size / 2, size, size);
+        continue;
+      }
       const f = this.p(s.x + 0.5, s.y + 0.6, 0.55), r = f.s * s.size;
       ctx.fillStyle = 'rgba(0,0,0,.5)';
       ctx.fillRect(f.x - r - 1, f.y - r - 1, r * 2 + 2, r * 2 + 2);
@@ -463,8 +501,9 @@ export class Board {
         if (!ghost && v.key === hkey(activeHero(g)) && g.status === 'play') this.ring(pos);
         const walk = 2 + (Math.floor(this.time / 110) % 2);
         const mood = moodOf(v.hp, v.maxHp);
-        this.place(heroSprite(v.hero, v.gear, v.walking ? walk : (beat + n) % 2, v.flip, mood), pos);
+        this.place(heroSprite(v.hero, v.gear, v.walking ? walk : (beat + n) % 2, v.flip, mood, false), pos);
         if (mood === 2) this.place(objects.wolke(beat + n), pos, 0.85);
+        if (v.hero === 'nordhexe' && !ghost) this.drawPiet(v, pos);
       }
     } else if (v.monster) {
       const frame = v.walking ? Math.floor(this.time / 110) : beat + n;

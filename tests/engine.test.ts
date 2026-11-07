@@ -214,6 +214,28 @@ describe('Regeln', () => {
     expect(g.punkte).toBeGreaterThan(punkte);
   });
 
+  it('Nordhexe: Piet pikt aus der Ferne und lässt den Gegner aussetzen', () => {
+    const g = play(['nordhexe', 'joern']);
+    const h = E.activeHero(g), m = g.monsters[0];
+    h.x = m.x - 4; h.y = m.y;
+    g.tiles[m.y].fill('.', 1, g.w - 1);
+    E.reveal(g);
+    g.seen[m.y][m.x] = true;
+    const hp = m.hp;
+    expect(E.specialNeedsTarget(g)).toBe(true);
+    expect(E.dispatch(g, { type: 'special', uid: m.uid })).toBe(true);
+    expect(m.hp).toBe(hp - 2);
+    expect(m.stuck || !g.monsters.includes(m)).toBe(true);
+    expect(g.fx.some((f) => f.t === 'shot' && f.shot === 'nordhexe')).toBe(true);
+  });
+
+  it('die alte Juni ist ausgeblendet, alte Spielstände laufen weiter', () => {
+    expect(HEROES.juni.hidden).toBe(true);
+    expect(HEROES.nordhexe.hidden).toBeFalsy();
+    expect(Object.values(HEROES).filter((d) => !d.hidden)).toHaveLength(5);
+    expect(play(['juni']).heroes[0].id).toBe('juni');
+  });
+
   it('Laden: einmalige Ausrüstung nur einmal, Werte steigen', () => {
     const c = E.newCampaign(['joern']);
     c.oere = 200;

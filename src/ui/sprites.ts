@@ -68,6 +68,30 @@ function weapon(p: Painter, d: number, gear: string[], own: (d: number) => void)
 }
 
 const HERO: Record<HeroId, (p: Painter, f: number, gear: string[]) => void> = {
+  nordhexe(p, f, gear) {
+    const a = f === 1 ? 1 : 0;
+    // Langes blondes Haar mit Strähnen, hinter dem Körper
+    p(7, 8 + a, 18, 17, '#e9c356');
+    const d = person(p, { shirt: '#2a5fc4', shirtD: '#1b3f8c', pants: '#1b2f66', boots: '#141e3d' }, f, gear);
+    if (!gear.includes('friesennerz')) {
+      p(9, 22 + d, 14, 2, '#1b3f8c'); p(15, 15 + d, 2, 6, '#9fc3ff');
+      p(10, 15 + d, 3, 1, '#e9c356'); p(19, 15 + d, 3, 1, '#e9c356');
+    }
+    p(8, 7 + d, 3, 18, '#e9c356'); p(21, 7 + d, 3, 18, '#e9c356');
+    p(8, 9 + d, 1, 15, '#fff3b8'); p(10, 8 + d, 1, 14, '#c9942e');
+    p(23, 9 + d, 1, 15, '#fff3b8'); p(21, 8 + d, 1, 14, '#c9942e');
+    p(10, 6 + d, 12, 2, '#e9c356'); p(12, 6 + d, 1, 2, '#fff3b8'); p(18, 6 + d, 1, 2, '#fff3b8');
+    // Spitzer Hut in Nordseeblau mit weißem Band
+    p(5, 5 + d, 22, 2, '#1b2f66'); p(9, 3 + d, 14, 2, '#24479a');
+    p(9, 4 + d, 14, 1, '#f4f6fb');
+    p(11, 1 + d, 10, 2, '#24479a'); p(13, 0 + d, 6, 1, '#24479a'); p(18, -1 + d, 4, 2, '#24479a');
+    p(21, 0 + d, 2, 1, '#e0ac3c');
+    // Reisigbesen
+    weapon(p, d, gear, (o) => {
+      p(27, 4 + o, 1, 20, '#7a5230');
+      p(25, 23 + o, 5, 3, '#c9a35a'); p(24, 26 + o, 7, 3, '#b08a45'); p(26, 25 + o, 1, 4, '#8a6a30');
+    });
+  },
   juni(p, f, gear) {
     // Das lange Haar liegt hinter dem Körper und fällt bis zur Taille.
     const a = f === 1 ? 1 : 0;
@@ -157,9 +181,26 @@ function catEars(p: Painter, d: number) {
   }
 }
 
-export function heroSprite(id: HeroId, gear: string[], frame: number, flip = false, mood = 0) {
-  return sprite(`h:${id}:${[...gear].sort().join()}:${frame}:${mood}`, (p) => {
+/** Möwe Piet, der Begleiter der Nordhexe: klein, frech, im 32er-Raster mittig. */
+export const piet = (frame: number, flip = false) => sprite(`o:piet:${frame % 2}`, (p) => {
+  p(10, 14, 11, 6, '#fbfbf5'); p(10, 18, 11, 2, '#d9dfe3');
+  p(18, 10, 6, 6, '#fbfbf5'); p(21, 12, 1, 1, INK);
+  p(24, 13, 4, 2, '#f1a93b'); p(26, 15, 1, 1, '#d9483a');
+  p(6, 15, 5, 2, '#9fb6c6'); p(5, 16, 2, 1, '#3c4650');
+  if (frame % 2) { p(11, 7, 7, 8, '#9fb6c6'); p(11, 6, 3, 2, '#3c4650'); }
+  else { p(11, 18, 7, 6, '#9fb6c6'); p(11, 23, 3, 1, '#3c4650'); }
+  p(13, 20, 1, 3, '#f1a93b'); p(16, 20, 1, 3, '#f1a93b');
+}, flip);
+
+export function heroSprite(id: HeroId, gear: string[], frame: number, flip = false, mood = 0, familiar = true) {
+  return sprite(`h:${id}:${[...gear].sort().join()}:${frame}:${mood}:${familiar}`, (p) => {
     HERO[id](p, frame, gear);
+    // Für Porträts sitzt Piet auf der Schulter; auf dem Brett fliegt er selbst.
+    if (id === 'nordhexe' && familiar) {
+      const d = frame === 1 ? 1 : 0;
+      p(23, 11 + d, 7, 4, '#fbfbf5'); p(27, 8 + d, 4, 4, '#fbfbf5'); p(29, 9 + d, 1, 1, INK);
+      p(31, 10 + d, 1, 1, '#f1a93b'); p(23, 12 + d, 4, 2, '#9fb6c6'); p(21, 13 + d, 2, 1, '#3c4650');
+    }
     moodFace(p, frame === 1 ? 1 : 0, mood);
     if (gear.includes('katzenohren')) catEars(p, frame === 1 ? 1 : 0);
   }, flip);
