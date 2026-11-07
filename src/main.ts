@@ -6,6 +6,7 @@ import type { Campaign, Game } from './game/engine';
 import { LocalTransport } from './net/transport';
 import { applyMusic, hush, play, saveSettings, say, settings, unlock, type Sound } from './ui/audio';
 import { Board, type Mark } from './ui/board';
+import { versionLabel } from './version';
 import { heroSprite, moodOf, objects, toDataUrl } from './ui/sprites';
 
 const SAVE = 'flensquest:v1';
@@ -76,6 +77,7 @@ function title() {
         <li>Der Oberpunktezähler sammelt <b>Punkte in Flensburg</b>. Bei ${PUNKTE_LIMIT} ist der Lappen weg, und das Kapitel ist verloren.</li>
       </ul>
     </section>
+    <p class="version">${versionLabel()}</p>
   </main>`);
   on('[data-new]', () => { picked = []; choose(); });
   on('[data-go]', () => chapterIntro());
@@ -91,6 +93,7 @@ function choose() {
       <small><b>${c.chapters.length} Kapitel</b> · ${c.blurb}</small>
     </button>`).join('')}</div>
     <div class="row"><button data-back>Zurück</button></div>
+    <p class="version">${versionLabel()}</p>
   </main>`);
   on('[data-back]', title);
   on('[data-campaign]', (el) => { chosen = el.dataset.campaign!; pick(); });
@@ -447,7 +450,6 @@ function board() {
       </div>
     </main>`);
     view = new Board(app.querySelector<HTMLCanvasElement>('.board')!, tapTile);
-    if (import.meta.env.DEV) (window as unknown as { board: Board }).board = view;
     setupZoom(view);
     view.onStep = () => play('step');
     view.onHover = showTip;
@@ -698,3 +700,10 @@ document.addEventListener('click', (e) => {
 
 audioBar();
 title();
+
+/* Nur im Entwicklungsmodus: Zugriff für E2E-Tests und Fehlersuche. */
+if (import.meta.env.DEV) {
+  Object.defineProperty(window, '__flens', {
+    value: { get board() { return view; }, get game() { return game; }, get campaign() { return campaign; } },
+  });
+}

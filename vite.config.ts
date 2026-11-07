@@ -1,2 +1,22 @@
-import { defineConfig } from 'vite';
-export default defineConfig({ base: './' });
+import { readFileSync } from 'node:fs';
+import { defineConfig } from 'vitest/config';
+
+const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8')) as { version: string };
+
+export default defineConfig({
+  base: './',
+  define: { __APP_VERSION__: JSON.stringify(version) },
+  test: {
+    // Drei Ebenen für Vitest; die E2E-Tests in tests/e2e laufen mit Playwright.
+    projects: [
+      { extends: true, test: { name: 'unit', include: ['tests/unit/**/*.test.ts'] } },
+      { extends: true, test: { name: 'integration', include: ['tests/integration/**/*.test.ts'] } },
+      { extends: true, test: { name: 'balance', include: ['tests/balance/**/*.test.ts'], testTimeout: 300_000 } },
+    ],
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.ts'],
+      reporter: ['text-summary', 'html'],
+    },
+  },
+});

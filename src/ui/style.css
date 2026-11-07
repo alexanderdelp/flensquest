@@ -43,6 +43,7 @@ small { font-weight: 400; }
 .cimg { display: block; width: 100%; max-width: 420px; height: auto; }
 .lead { margin: 0; font-size: 1.1rem; }
 .row { display: flex; gap: 12px; flex-wrap: wrap; }
+.version { margin: 4px 0 0; font-size: .8rem; opacity: .65; }
 .rules { text-align: left; background: var(--moewe); border-radius: 12px; padding: 14px 20px; width: 100%; }
 .rules ul { margin: 0; padding-left: 1.2em; line-height: 1.5; }
 .kicker { margin: 0; color: var(--ziegel); font-weight: 700; }

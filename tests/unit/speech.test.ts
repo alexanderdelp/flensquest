@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSettings, sentences, speechText } from '../src/ui/speech-text';
+import { parseSettings, sentences, speechText } from '../../src/ui/speech-text';
 
 describe('Vorlesetext', () => {
   it('entfernt Markup und Emojis', () => {
