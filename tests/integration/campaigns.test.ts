@@ -161,7 +161,8 @@ describe('Spielstände', () => {
 
 describe('Dokumentation', () => {
   it('das Beispiel in docs/kladde.md ist eine gültige Kampagne', async () => {
-    const doc = (await import('../../docs/kladde.md?raw')).default;
+    // Unter Windows checkt Git die Doku mit CRLF aus; das Beispiel muss trotzdem gefunden werden.
+    const doc = (await import('../../docs/kladde.md?raw')).default.replace(/\r\n/g, '\n');
     const example = doc.match(/## Aufbau\n\n```\n([\s\S]*?)```/)![1];
     const r = compile(example);
     expect(r.errors).toEqual([]);
