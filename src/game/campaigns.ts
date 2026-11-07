@@ -1,3 +1,4 @@
+import { AKTE_CHAPTERS, AKTE_EPILOG, AKTE_EVENTS, AKTE_INTRO, AKTE_LOST, AKTE_RETRY } from './akte';
 import { CHAPTERS, EVENTS, type Chapter, type EventCard } from './data';
 
 /** Eine Kampagne bündelt Kapitel, Ereigniskarten und ihre Rahmentexte. */
@@ -22,6 +23,17 @@ export const CAMPAIGNS: CampaignDef[] = [
     blurb: 'Fünf Kapitel von der Hafenspitze bis ins Punktearchiv. Der ursprüngliche Einstieg in FlensQuest.',
     chapters: CHAPTERS,
     events: EVENTS,
+  },
+  {
+    id: 'akte',
+    title: 'Die Akte Förde',
+    blurb: 'Das Geheimnis der verschwundenen Punkte: Sechs Missionen quer durch Flensburg, mit Fälschern, Möwenbanden und einem Oberarchivar.',
+    chapters: AKTE_CHAPTERS,
+    events: AKTE_EVENTS,
+    intro: AKTE_INTRO,
+    epilog: AKTE_EPILOG,
+    lostText: AKTE_LOST,
+    retryText: AKTE_RETRY,
   },
 ];
 

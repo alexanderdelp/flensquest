@@ -3,7 +3,7 @@
 Eigenständiges Browser-Dungeonspiel mit Flensburg-Humor (Vite, TypeScript, kein Framework). Details stehen in `README.md`.
 
 ## Spielkontext
-Kooperatives Keller-Abenteuer für 1 bis 4 Figuren an einem Gerät, reihum. Den Spielleiter spielt wahlweise der Rechner oder ein Mensch; er tritt als Oberpunktezähler gegen die Gruppe an. Die Geschichte führt in fünf Kapiteln von der Hafenspitze über Rote Straße, Nordertor und Museumsberg ins Punktearchiv.
+Kooperatives Keller-Abenteuer für 1 bis 4 Figuren an einem Gerät, reihum. Den Spielleiter spielt wahlweise der Rechner oder ein Mensch; er tritt als Oberpunktezähler gegen die Gruppe an. Es gibt zwei Kampagnen: den ursprünglichen Fall Hafenlogbuch und die Story-Kampagne „Die Akte Förde“ (`src/game/akte.ts`).
 
 Ausgangspunkt war der Wunsch nach einem Spiel im Stil klassischer Dungeon-Brettspiele. **FlensQuest ist aber keine Nachbildung eines bestehenden Spiels:** Regeln, Figuren, Gegner, Karten, Texte und Grafik bleiben eigenständig. Nichts aus einem konkreten Spiel übernehmen.
 
@@ -21,6 +21,7 @@ Ausgangspunkt war der Wunsch nach einem Spiel im Stil klassischer Dungeon-Bretts
 
 ## Technik und Oberfläche
 - **Trennung:** Regeln und Spielleiter liegen in `src/game/engine.ts` ohne DOM-Zugriff, Inhalte in `src/game/data.ts`, die Oberfläche in `src/main.ts`, das Brett in `src/ui/board.ts`, die Grafik in `src/ui/sprites.ts`. Zufall läuft über den Seed im Spielzustand, damit Tests reproduzierbar bleiben.
+- **Kampagnen:** `src/game/campaigns.ts` verbindet Kapitel, Ereigniskarten und Rahmentexte. Eine Kampagne ist nur Daten: Karte, Texte, `notes` (Raumtexte beim Türöffnen, auch mit Verstärkung), `foes` (Gegnertexte), `phase` (Wende im Endkampf).
 - **Spielleiter:** `gmTurn` ist ein Generator, damit die Oberfläche jeden Gegnerzug einzeln zeigt. Ein menschlicher Spielleiter zieht Gegner einzeln und spielt eine von zwei Karten.
 - **Handlungen:** Alles läuft als serialisierbare `Action` über `dispatch` und `src/net/transport.ts`. Neue Handlungen nur dort ergänzen, damit das Spiel zwischen Geräten lauffähig bleibt. Die Engine meldet Sichtbares über `g.fx`; das steuert Animationen und Meldungen, nie die Regeln.
 - **Bedienung:** Alles läuft per Klick oder Tippen auf dem Brett, ohne Tastatur. Mögliche Ziele sind markiert: grün zum Gehen, gold für Türen und Truhen, rot für Gegner. Aktionsknöpfe mindestens 44 px hoch.

@@ -125,7 +125,20 @@ function pick() {
   });
   on('[data-back]', choose);
   on('[data-gm]', (el) => { gmHuman = el.dataset.gm === '1'; pick(); });
-  on('[data-start]', () => { campaign = E.newCampaign(picked, gmHuman, chosen); save(); chapterIntro(); });
+  on('[data-start]', () => { campaign = E.newCampaign(picked, gmHuman, chosen); save(); campaignIntro(); });
+}
+
+function campaignIntro() {
+  const def = campaignById(campaign!.campaign);
+  if (!def.intro) { chapterIntro(); return; }
+  html(`<main class="screen narrow">
+    <p class="kicker">Neue Kampagne</p>
+    <h2>${def.title}</h2>
+    <p class="story">${def.intro}</p>
+    <button class="primary" data-go>Akte öffnen</button>
+  </main>`);
+  readScreen();
+  on('[data-go]', chapterIntro);
 }
 
 function chapterIntro() {
@@ -134,6 +147,7 @@ function chapterIntro() {
     <p class="kicker">Kapitel ${c.chapter + 1} von ${chapters.length} · ${ch.place}</p>
     <h2>${ch.title}</h2>
     <p class="story">${ch.intro}</p>
+    ${ch.situation ? `<p>${ch.situation}</p>` : ''}
     <p class="goal"><b>Ziel:</b> ${ch.goalText}</p>
     <button class="primary" data-go>Rein da</button>
   </main>`);
@@ -156,7 +170,9 @@ function result() {
     html(`<main class="screen narrow">
       <h2>Das war nix</h2>
       <p class="story">${g.lostReason}</p>
+      ${def.lostText ? `<p>${def.lostText}</p>` : ''}
       <p>Das Kapitel beginnt von vorn. Eure Öre aus diesem Versuch bleiben im Keller.</p>
+      ${def.retryText ? `<p>${def.retryText}</p>` : ''}
       <button class="primary" data-retry>Nochmal</button>
     </main>`);
     readScreen();
@@ -169,6 +185,7 @@ function result() {
     html(`<main class="screen narrow">
       <h2>⚓ Flensburg ist gerettet</h2>
       <p class="story">${ch.outro}</p>
+      ${def.epilog ? `<p class="story">${def.epilog}</p>` : ''}
       <p>Eure Kasse: ${campaign.oere} Öre. Ein Fischbrötchen geht aufs Haus.</p>
       <button class="primary" data-end>Zum Anfang</button>
     </main>`);
@@ -180,6 +197,7 @@ function result() {
     <h2>Geschafft!</h2>
     <p class="story">${ch.outro}</p>
     <p>Belohnung: ${ch.reward} Öre.</p>
+    ${ch.bridge ? `<p class="goal">${ch.bridge}</p>` : ''}
     <button class="primary" data-go>Zum Hafenkiosk</button>
   </main>`);
   readScreen();
@@ -309,7 +327,7 @@ function panel() {
     <span>Runde ${g.round} · ${g.oere} Öre</span>
     <button class="mini" data-quit>Menü</button>`;
   app.querySelector('.side')!.innerHTML = `
-    <p class="goal small">${ch.goalText}${g.goalTaken && ch.goal.type === 'bergen' ? ' ✔ gefunden' : ''}</p>
+    <p class="goal small">${ch.goalText}${g.goalTaken ? ' ✔ gefunden' : ''}${g.bossDead ? ' ✔ besiegt' : ''}</p>
     <div class="party">${g.heroes.map((o, i) => `<div class="pc ${i === g.turn && playing ? 'on' : ''} ${o.down ? 'down' : ''}"
       data-say="${HEROES[o.id].name}: ${o.hp} von ${o.maxHp} Lebenspunkten, ${o.food} Fischbrötchen, ${o.charges} mal Spezialkönnen${o.down ? ', gestürzt' : ''}">
       <img class="dot" alt="" src="${portrait(o)}">
@@ -441,7 +459,7 @@ function describe(f: E.Fx, v: Board): string | null {
 function speakLog(g: Game) {
   const lines = g.log.slice(spoken);
   spoken = g.log.length;
-  lines.forEach((l) => { void say(l); });
+  lines.filter((l) => !l.startsWith('📍')).forEach((l) => { void say(l); });
 }
 
 function fxSound(f: E.Fx, v: Board) {
@@ -454,7 +472,7 @@ function fxSound(f: E.Fx, v: Board) {
   if (f.t === 'heal') play('heal');
   if (f.t === 'die') play('die');
   if (f.t === 'float') play('coin');
-  if (f.t === 'card') play('card');
+  if (f.t === 'card' || f.t === 'note') play('card');
   if (f.t === 'punkte') play('stamp');
 }
 
@@ -478,6 +496,14 @@ async function announce(f: E.Fx, g: Game, v: Board) {
     setBox('.banner', `<small>Punkte in Flensburg</small><b>+${f.n} · ${f.total} von ${PUNKTE_LIMIT}</b><span>${f.why}</span>`);
     panel();
     await Promise.all([v.pause(3200), line]);
+    setBox('.banner', null);
+    return;
+  }
+  if (f.t === 'note') {
+    recap.push(`📍 ${f.title}`);
+    const line = say(`${f.title}. ${f.text}`);
+    setBox('.banner', `<small>${E.chapterOf(g).place}</small><b>${f.title}</b><span>${f.text}</span>`);
+    await Promise.all([v.pause(Math.min(9000, 3000 + f.text.length * 50)), line]);
     setBox('.banner', null);
     return;
   }

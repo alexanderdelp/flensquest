@@ -1,6 +1,6 @@
 import {
   HEROES, MONSTERS, MONSTER_CHARS, PUNKTE_LIMIT, SHOP, TIDEN,
-  type HeroId, type MonsterId, type ShopItem,
+  type HeroId, type MonsterId, type ShopItem, type Spawn,
 } from './data';
 import { campaignById } from './campaigns';
 
@@ -14,7 +14,7 @@ export interface Campaign { heroes: CampaignHero[]; oere: number; chapter: numbe
 export interface Hero extends CampaignHero, Pos {
   hp: number; maxHp: number; charges: number; down: boolean; pfoten: boolean;
 }
-export interface Prop extends Pos { kind: 'fass' | 'kiste' }
+export interface Prop extends Pos { kind: 'fass' | 'kiste' | 'pumpe' | 'regal' }
 export interface Monster extends Pos {
   uid: number; kind: MonsterId; hp: number; maxHp: number; stuck: boolean; blind?: boolean;
 }
@@ -28,6 +28,7 @@ export type Fx =
   | { t: 'die'; who: string }
   | { t: 'float'; at: Pos; text: string }
   | { t: 'card'; name: string; text: string }
+  | { t: 'note'; title: string; text: string }
   | { t: 'punkte'; n: number; total: number; why: string };
 
 /** Jede Spielhandlung als einfache Nachricht: gleiche Regeln lokal und zwischen Geräten. */
@@ -43,6 +44,7 @@ export type Action =
 export interface Game {
   fx: Fx[];
   campaign: string; theme: number;
+  notesDone: number[]; foesSeen: string[]; bossDead: boolean; phaseDone: boolean;
   gmHuman: boolean; gmActed: number[]; gmMoved: number[]; gmCards: number[]; gmCardPlayed: boolean;
   chapter: number; w: number; h: number;
   tiles: string[][]; seen: boolean[][];
@@ -88,7 +90,8 @@ export function startChapter(c: Campaign, seed = Date.now()): Game {
   const n = c.heroes.length;
   const g: Game = {
     chapter: c.chapter, w: ch.map[0].length, h: ch.map.length,
-    fx: [], campaign: campaignById(c.campaign).id, theme: ch.theme ?? c.chapter, gmHuman: !!c.gmHuman, gmActed: [], gmMoved: [], gmCards: [], gmCardPlayed: false,
+    fx: [], campaign: campaignById(c.campaign).id, theme: ch.theme ?? c.chapter,
+    notesDone: [], foesSeen: [], bossDead: false, phaseDone: false, gmHuman: !!c.gmHuman, gmActed: [], gmMoved: [], gmCards: [], gmCardPlayed: false,
     tiles: [], seen: [], heroes: [], monsters: [], chests: [], traps: [], props: [],
     goal: null, goalTaken: false, exit: null,
     turn: 0, tiden: 0, steps: 0, attacked: false, specialUsed: false,
@@ -107,6 +110,8 @@ export function startChapter(c: Campaign, seed = Date.now()): Game {
       else if (c0 === 't') g.traps.push({ x, y });
       else if (c0 === 'f') g.props.push({ x, y, kind: 'fass' });
       else if (c0 === 'x') g.props.push({ x, y, kind: 'kiste' });
+      else if (c0 === 'o') g.props.push({ x, y, kind: 'pumpe' });
+      else if (c0 === 'z') g.props.push({ x, y, kind: 'regal' });
       else if (c0 === 'G') g.goal = { x, y };
       else if (MONSTER_CHARS[c0]) spawn(g, MONSTER_CHARS[c0], x, y, HP_SCALE[n - 1]);
       if (c0 === 'X') g.exit = { x, y };
@@ -124,7 +129,7 @@ export function startChapter(c: Campaign, seed = Date.now()): Game {
 }
 
 function spawn(g: Game, kind: MonsterId, x: number, y: number, scale: number) {
-  const hp = Math.max(1, Math.round(MONSTERS[kind].hp * scale));
+  const hp = Math.max(1, Math.round(MONSTERS[kind].hp * (MONSTERS[kind].boss ? Math.max(scale, 0.6) : scale)));
   g.monsters.push({ uid: g.nextUid++, kind, x, y, hp, maxHp: hp, stuck: false });
 }
 
@@ -162,6 +167,7 @@ export function reveal(g: Game) {
       if (walkable(tile(g, x, y)) && !done.has(key(x, y))) stack.push({ x, y });
     }
   }
+  if (g.heroes.length) meetFoes(g);
 }
 
 export const isActive = (g: Game, m: Monster) => g.seen[m.y][m.x];
@@ -174,6 +180,45 @@ export function lineOfSight(g: Game, a: Pos, b: Pos): boolean {
     if (blocksSight(tile(g, x, y))) return false;
   }
   return true;
+}
+
+/** Setzt Verstärkung aufs nächste freie Feld. */
+function placeSpawns(g: Game, list: Spawn[]) {
+  const scale = HP_SCALE[g.heroes.length - 1];
+  for (const s of list) {
+    let spot: Pos | null = null;
+    for (let r = 0; r <= 4 && !spot; r++) for (let dy = -r; dy <= r && !spot; dy++) for (let dx = -r; dx <= r; dx++) {
+      const x = s.x + dx, y = s.y + dy;
+      if (walkable(tile(g, x, y)) && !monsterAt(g, x, y) && !heroAt(g, x, y) && !blocked(g, x, y)) { spot = { x, y }; break; }
+    }
+    if (spot) spawn(g, s.kind, spot.x, spot.y, scale);
+  }
+}
+
+function showNote(g: Game, title: string, text: string) {
+  log(g, `📍 ${title}`);
+  g.fx.push({ t: 'note', title, text });
+}
+
+function doorNote(g: Game, x: number, y: number) {
+  const notes = chapterOf(g).notes ?? [];
+  notes.forEach((n, i) => {
+    if (g.notesDone.includes(i) || !n.at.some(([ax, ay]) => ax === x && ay === y)) return;
+    g.notesDone.push(i);
+    showNote(g, n.title, n.text);
+    if (n.spawn) placeSpawns(g, n.spawn);
+  });
+}
+
+function meetFoes(g: Game) {
+  const foes = chapterOf(g).foes;
+  if (!foes) return;
+  for (const m of g.monsters) {
+    const text = foes[m.kind];
+    if (!text || !isActive(g, m) || g.foesSeen.includes(m.kind)) continue;
+    g.foesSeen.push(m.kind);
+    showNote(g, MONSTERS[m.kind].name, text);
+  }
 }
 
 export function beginTurn(g: Game) {
@@ -247,10 +292,18 @@ function takeGoal(g: Game) {
   const goal = chapterOf(g).goal;
   g.goalTaken = true;
   if (goal.type === 'bergen') log(g, `${goal.item} gefunden! Jetzt zum Ausgang.`);
+  else if (goal.item) log(g, `${goal.item} gesichert.`);
+  tryWin(g);
+}
+
+const bossDone = (g: Game) => !chapterOf(g).goal.boss || g.bossDead;
+
+function tryWin(g: Game) {
+  if (chapterOf(g).goal.type === 'besiegen' && bossDone(g) && (!g.goal || g.goalTaken)) win(g);
 }
 
 function checkExit(g: Game, h: Hero) {
-  if (g.status === 'play' && g.goalTaken && g.exit && h.x === g.exit.x && h.y === g.exit.y) win(g);
+  if (g.status === 'play' && g.goalTaken && bossDone(g) && g.exit && h.x === g.exit.x && h.y === g.exit.y) win(g);
 }
 
 function win(g: Game) {
@@ -309,14 +362,22 @@ export function rollAttack(g: Game, att: number, arm: number): Roll {
 function damageMonster(g: Game, m: Monster, dmg: number) {
   m.hp -= dmg;
   g.fx.push({ t: 'hurt', who: mkey(m), n: dmg });
-  if (m.hp > 0) return;
+  const ch = chapterOf(g);
+  if (m.hp > 0) {
+    if (ch.phase && !g.phaseDone && m.kind === ch.goal.boss && m.hp * 2 <= m.maxHp) {
+      g.phaseDone = true;
+      showNote(g, ch.phase.title, ch.phase.text);
+      placeSpawns(g, ch.phase.spawn);
+    }
+    return;
+  }
   const d = MONSTERS[m.kind];
   g.fx.push({ t: 'die', who: mkey(m) });
   g.fx.push({ t: 'float', at: { x: m.x, y: m.y }, text: `+${d.reward} Öre` });
   g.monsters = g.monsters.filter((o) => o !== m);
   g.oere += d.reward;
   log(g, `${d.name} ist erledigt (+${d.reward} Öre).`);
-  if (chapterOf(g).goal.type === 'besiegen' && (m.kind === 'klabauter' || m.kind === 'obermeister')) win(g);
+  if (m.kind === chapterOf(g).goal.boss) { g.bossDead = true; tryWin(g); }
 }
 
 export function attack(g: Game, m: Monster): Roll | null {
@@ -339,6 +400,7 @@ export function openDoor(g: Game, x: number, y: number): boolean {
   if (!canOpenDoor(g, x, y)) return false;
   g.tiles[y][x] = 'O';
   log(g, 'Tür auf.');
+  doorNote(g, x, y);
   reveal(g);
   return true;
 }
