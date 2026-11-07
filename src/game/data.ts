@@ -104,6 +104,8 @@ export interface Chapter {
   goal: Goal;
   reward: number;
   map: string[];
+  /** Raumthema; ohne Angabe die Kapitelnummer. */
+  theme?: number;
 }
 
 /*

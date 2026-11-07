@@ -1,14 +1,15 @@
 import {
-  CHAPTERS, EVENTS, HEROES, MONSTERS, MONSTER_CHARS, PUNKTE_LIMIT, SHOP, TIDEN,
+  HEROES, MONSTERS, MONSTER_CHARS, PUNKTE_LIMIT, SHOP, TIDEN,
   type HeroId, type MonsterId, type ShopItem,
 } from './data';
+import { campaignById } from './campaigns';
 
 export interface Pos { x: number; y: number }
 
 export interface CampaignHero {
   id: HeroId; att: number; arm: number; spd: number; food: number; gear: string[];
 }
-export interface Campaign { heroes: CampaignHero[]; oere: number; chapter: number; gmHuman?: boolean }
+export interface Campaign { heroes: CampaignHero[]; oere: number; chapter: number; gmHuman?: boolean; campaign?: string }
 
 export interface Hero extends CampaignHero, Pos {
   hp: number; maxHp: number; charges: number; down: boolean; pfoten: boolean;
@@ -41,6 +42,7 @@ export type Action =
 
 export interface Game {
   fx: Fx[];
+  campaign: string; theme: number;
   gmHuman: boolean; gmActed: number[]; gmMoved: number[]; gmCards: number[]; gmCardPlayed: boolean;
   chapter: number; w: number; h: number;
   tiles: string[][]; seen: boolean[][];
@@ -69,9 +71,9 @@ function rand(g: Game): number {
 }
 export const d6 = (g: Game) => 1 + Math.floor(rand(g) * 6);
 
-export function newCampaign(ids: HeroId[], gmHuman = false): Campaign {
+export function newCampaign(ids: HeroId[], gmHuman = false, campaign = 'hafen'): Campaign {
   return {
-    oere: 20, chapter: 0, gmHuman,
+    oere: 20, chapter: 0, gmHuman, campaign,
     heroes: ids.map((id) => {
       const d = HEROES[id];
       return { id, att: d.att, arm: d.arm, spd: d.spd, food: 2, gear: [] };
@@ -82,11 +84,11 @@ export function newCampaign(ids: HeroId[], gmHuman = false): Campaign {
 const HP_SCALE = [0.5, 1, 1.25, 1.5];
 
 export function startChapter(c: Campaign, seed = Date.now()): Game {
-  const ch = CHAPTERS[c.chapter];
+  const ch = campaignById(c.campaign).chapters[c.chapter];
   const n = c.heroes.length;
   const g: Game = {
     chapter: c.chapter, w: ch.map[0].length, h: ch.map.length,
-    fx: [], gmHuman: !!c.gmHuman, gmActed: [], gmMoved: [], gmCards: [], gmCardPlayed: false,
+    fx: [], campaign: campaignById(c.campaign).id, theme: ch.theme ?? c.chapter, gmHuman: !!c.gmHuman, gmActed: [], gmMoved: [], gmCards: [], gmCardPlayed: false,
     tiles: [], seen: [], heroes: [], monsters: [], chests: [], traps: [], props: [],
     goal: null, goalTaken: false, exit: null,
     turn: 0, tiden: 0, steps: 0, attacked: false, specialUsed: false,
@@ -125,6 +127,9 @@ function spawn(g: Game, kind: MonsterId, x: number, y: number, scale: number) {
   const hp = Math.max(1, Math.round(MONSTERS[kind].hp * scale));
   g.monsters.push({ uid: g.nextUid++, kind, x, y, hp, maxHp: hp, stuck: false });
 }
+
+export const chapterOf = (g: Game) => campaignById(g.campaign).chapters[g.chapter];
+export const deckOf = (g: Game) => campaignById(g.campaign).events;
 
 export function log(g: Game, msg: string) { g.log.push(msg); }
 
@@ -239,7 +244,7 @@ export function moveTo(g: Game, x: number, y: number): boolean {
 }
 
 function takeGoal(g: Game) {
-  const goal = CHAPTERS[g.chapter].goal;
+  const goal = chapterOf(g).goal;
   g.goalTaken = true;
   if (goal.type === 'bergen') log(g, `${goal.item} gefunden! Jetzt zum Ausgang.`);
 }
@@ -250,7 +255,7 @@ function checkExit(g: Game, h: Hero) {
 
 function win(g: Game) {
   g.status = 'won';
-  g.oere += CHAPTERS[g.chapter].reward;
+  g.oere += chapterOf(g).reward;
   log(g, 'Geschafft! Kapitel gewonnen.');
 }
 
@@ -311,7 +316,7 @@ function damageMonster(g: Game, m: Monster, dmg: number) {
   g.monsters = g.monsters.filter((o) => o !== m);
   g.oere += d.reward;
   log(g, `${d.name} ist erledigt (+${d.reward} Öre).`);
-  if (CHAPTERS[g.chapter].goal.type === 'besiegen' && (m.kind === 'klabauter' || m.kind === 'obermeister')) win(g);
+  if (chapterOf(g).goal.type === 'besiegen' && (m.kind === 'klabauter' || m.kind === 'obermeister')) win(g);
 }
 
 export function attack(g: Game, m: Monster): Roll | null {
@@ -511,10 +516,10 @@ function strike(g: Game, m: Monster, t: Hero) {
   }
 }
 
-const drawCard = (g: Game) => Math.floor(rand(g) * EVENTS.length);
+const drawCard = (g: Game) => Math.floor(rand(g) * deckOf(g).length);
 
 function playEvent(g: Game, index: number) {
-  const e = EVENTS[index];
+  const e = deckOf(g)[index];
   log(g, `📜 ${e.name}: ${e.text}`);
   g.fx.push({ t: 'card', name: e.name, text: e.text });
   if (e.id === 'moin') living(g).forEach((h) => {
@@ -668,6 +673,7 @@ export function finishChapter(c: Campaign, g: Game): Campaign {
   return {
     oere: g.oere,
     chapter: c.chapter + 1,
+    campaign: c.campaign,
     gmHuman: c.gmHuman,
     heroes: c.heroes.map((h) => {
       const now = g.heroes.find((o) => o.id === h.id)!;

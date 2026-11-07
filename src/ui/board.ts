@@ -1,6 +1,5 @@
-import { CHAPTERS } from '../game/data';
 import type { Fx, Game, Pos } from '../game/engine';
-import { activeHero, hkey, isActive, mkey } from '../game/engine';
+import { activeHero, chapterOf, hkey, isActive, mkey } from '../game/engine';
 import { HEROES, MONSTERS, type HeroId, type MonsterId } from '../game/data';
 import {
   SPRITE, THEMES, floorTile, heroDown, heroSprite, monsterSprite, moodOf, objects, wallFace,
@@ -136,11 +135,11 @@ export class Board {
     f.width = this.canvas.width; f.height = this.canvas.height;
     const c = f.getContext('2d')!;
     c.imageSmoothingEnabled = false;
-    c.fillStyle = THEMES[g.chapter].fog;
+    c.fillStyle = THEMES[g.theme].fog;
     c.fillRect(0, 0, f.width, f.height);
     for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
       if (!g.seen[y][x] || this.solid(g, x, y)) continue;
-      this.floorStrips(c, floorTile(g.chapter, hash(x, y)), x, y);
+      this.floorStrips(c, floorTile(g.theme, hash(x, y)), x, y);
     }
     if (g.exit && g.seen[g.exit.y][g.exit.x]) this.floorStrips(c, objects.exit(), g.exit.x, g.exit.y);
     this.floorKey = key;
@@ -174,9 +173,9 @@ export class Board {
   }
 
   private drawWall(g: Game, x: number, y: number) {
-    const th = THEMES[g.chapter], v = hash(x, y);
+    const th = THEMES[g.theme], v = hash(x, y);
     const culled = { e: this.solid(g, x + 1, y), w: this.solid(g, x - 1, y), s: this.solid(g, x, y + 1) };
-    this.box({ x0: x, y0: y, x1: x + 1, y1: y + 1, h: WALL, top: th.top, side: th.mortar, front: wallFace(g.chapter, v), culled });
+    this.box({ x0: x, y0: y, x1: x + 1, y1: y + 1, h: WALL, top: th.top, side: th.mortar, front: wallFace(g.theme, v), culled });
     if (!culled.s && v % 7 === 0) {
       const f = this.p(x + 0.5, y + 1, WALL * 0.62), s = f.s * 0.5;
       if (this.angle < 85) this.ctx.drawImage(objects.lanterne(Math.floor(this.time / 260) + x), f.x - s / 2, f.y - s / 2, s, s);
@@ -297,7 +296,7 @@ export class Board {
   }
 
   private goalSprite(g: Game) {
-    const goal = CHAPTERS[g.chapter].goal;
+    const goal = chapterOf(g).goal;
     if (goal.type !== 'bergen') return null;
     if (goal.item.includes('Schlüssel')) return objects.schluessel();
     if (goal.item.includes('Karte')) return objects.karte();
@@ -533,7 +532,7 @@ export class Board {
     this.layout(g);
     ctx.imageSmoothingEnabled = false;
     const key = [
-      this.canvas.width, this.canvas.height, this.angle, g.chapter,
+      this.canvas.width, this.canvas.height, this.angle, g.theme, g.chapter,
       g.seen.map((r) => r.map(Number).join('')).join(), g.tiles.map((r) => r.join('')).join(),
     ].join('|');
     if (key !== this.floorKey) this.buildFloor(g, key);

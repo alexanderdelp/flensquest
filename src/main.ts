@@ -1,5 +1,6 @@
 import './ui/style.css';
-import { CHAPTERS, EVENTS, HEROES, MONSTERS, PUNKTE_LIMIT, SHOP, type HeroId } from './game/data';
+import { HEROES, MONSTERS, PUNKTE_LIMIT, SHOP, type HeroId } from './game/data';
+import { CAMPAIGNS, campaignById } from './game/campaigns';
 import * as E from './game/engine';
 import type { Campaign, Game } from './game/engine';
 import { LocalTransport } from './net/transport';
@@ -14,6 +15,7 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 let campaign: Campaign | null = load();
 let game: Game | null = null;
 let picked: HeroId[] = [];
+let chosen = CAMPAIGNS[0].id;
 let gmHuman = false;
 let gmSel: number | null = null;
 let aiming = false;
@@ -49,13 +51,14 @@ function readScreen() {
 /* ---------- Bildschirme ---------- */
 
 function title() {
-  const hasSave = campaign && campaign.chapter < CHAPTERS.length;
+  const def = campaignById(campaign?.campaign);
+  const hasSave = campaign && campaign.chapter < def.chapters.length;
   html(`<main class="screen title">
     <h1>⚓ FlensQuest</h1>
     <p class="lead">Ein Kellerabenteuer zwischen Hafenspitze und Punktearchiv.<br>Für 1 bis 4 Figuren an einem Gerät. Den Spielleiter spielt der Rechner oder ein Mensch.</p>
     <div class="row">
       <button class="primary" data-new>Neues Abenteuer</button>
-      ${hasSave ? `<button data-go>Weiter: Kapitel ${campaign!.chapter + 1}</button>` : ''}
+      ${hasSave ? `<button data-go>Weiter: ${def.title}, Kapitel ${campaign!.chapter + 1}</button>` : ''}
     </div>
     <section class="rules">
       <h2>So geht's</h2>
@@ -67,8 +70,21 @@ function title() {
       </ul>
     </section>
   </main>`);
-  on('[data-new]', () => { picked = []; pick(); readScreen(); });
+  on('[data-new]', () => { picked = []; choose(); readScreen(); });
   on('[data-go]', () => chapterIntro());
+}
+
+function choose() {
+  html(`<main class="screen">
+    <h2>Welches Abenteuer soll es sein?</h2>
+    <div class="cards campaigns">${CAMPAIGNS.map((c) => `<button class="card" data-campaign="${c.id}"
+        data-say="${c.title}. ${c.chapters.length} Kapitel. ${c.blurb}">
+      <b>${c.title}</b><small>${c.chapters.length} Kapitel</small><small>${c.blurb}</small>
+    </button>`).join('')}</div>
+    <div class="row"><button data-back>Zurück</button></div>
+  </main>`);
+  on('[data-back]', title);
+  on('[data-campaign]', (el) => { chosen = el.dataset.campaign!; pick(); readScreen(); });
 }
 
 function pick() {
@@ -107,15 +123,15 @@ function pick() {
     const d = HEROES[id];
     void say(adding ? `${d.name}, ${d.title}. ${d.special}: ${d.specialText}` : `${d.name} bleibt an Land.`);
   });
-  on('[data-back]', title);
+  on('[data-back]', choose);
   on('[data-gm]', (el) => { gmHuman = el.dataset.gm === '1'; pick(); });
-  on('[data-start]', () => { campaign = E.newCampaign(picked, gmHuman); save(); chapterIntro(); });
+  on('[data-start]', () => { campaign = E.newCampaign(picked, gmHuman, chosen); save(); chapterIntro(); });
 }
 
 function chapterIntro() {
-  const c = campaign!, ch = CHAPTERS[c.chapter];
+  const c = campaign!, chapters = campaignById(c.campaign).chapters, ch = chapters[c.chapter];
   html(`<main class="screen narrow">
-    <p class="kicker">Kapitel ${c.chapter + 1} von ${CHAPTERS.length} · ${ch.place}</p>
+    <p class="kicker">Kapitel ${c.chapter + 1} von ${chapters.length} · ${ch.place}</p>
     <h2>${ch.title}</h2>
     <p class="story">${ch.intro}</p>
     <p class="goal"><b>Ziel:</b> ${ch.goalText}</p>
@@ -133,7 +149,7 @@ function chapterIntro() {
 }
 
 function result() {
-  const g = game!, c = campaign!, ch = CHAPTERS[g.chapter];
+  const g = game!, c = campaign!, def = campaignById(c.campaign), ch = def.chapters[g.chapter];
   view?.stop(); view = null;
   play(g.status === 'lost' ? 'lose' : 'win');
   if (g.status === 'lost') {
@@ -149,7 +165,7 @@ function result() {
   }
   campaign = E.finishChapter(c, g);
   save();
-  if (campaign.chapter >= CHAPTERS.length) {
+  if (campaign.chapter >= def.chapters.length) {
     html(`<main class="screen narrow">
       <h2>⚓ Flensburg ist gerettet</h2>
       <p class="story">${ch.outro}</p>
@@ -285,7 +301,7 @@ function act(action: E.Action) { net.send({ kind: 'request', device: DEVICE, act
 const portrait = (o: E.Hero) => toDataUrl(heroSprite(o.id, o.gear, 0, false, moodOf(o.hp, o.maxHp)));
 
 function panel() {
-  const g = game!, ch = CHAPTERS[g.chapter];
+  const g = game!, ch = E.chapterOf(g);
   const playing = g.status === 'play' && !busy;
   app.querySelector('.top')!.innerHTML = `
     <b>⚓ ${ch.title}</b>
@@ -349,7 +365,7 @@ function gmHint(g: Game) {
 function gmButtons(g: Game) {
   const off = busy ? 'disabled' : '';
   return `<div class="cards-gm">${g.gmCards.map((c, i) => `<button data-card="${i}" ${g.gmCardPlayed ? 'disabled' : off}>
-      📜 ${EVENTS[c].name}<small>${EVENTS[c].text}</small></button>`).join('')}</div>
+      📜 ${E.deckOf(g)[c].name}<small>${E.deckOf(g)[c].text}</small></button>`).join('')}</div>
     <button class="primary" data-gmend ${g.gmCardPlayed && !busy ? '' : 'disabled'}>Runde beenden</button>`;
 }
 
