@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { BUILTIN as CAMPAIGNS } from '../../src/campaigns';
+import { builtins } from '../../src/campaigns';
+const CAMPAIGNS = builtins();
 import { type HeroId } from '../../src/content';
-import * as E from '../support/engine';
+import { SHOP } from '../../src/content';
+import * as E from '../../src/core';
+import '../support/fixture';
 
 /*
  * Balance: Ein einfacher Bot spielt jedes Kapitel viele Male durch. Er zeigt nur die Tendenz;
@@ -11,25 +14,28 @@ const ALL: HeroId[] = ['frauke', 'joern', 'maren', 'hinnerk'];
 
 /** Einfacher Bot: prüft, dass jedes Kapitel durchspielbar ist, und misst die Balance. */
 function bot(ids: HeroId[], chapter: number, seed: number, campaign = 'hafen', geared = false): 'won' | 'lost' {
-  const c = E.newCampaign(ids, false, campaign);
+  const c = E.newProgress(ids, false, campaign);
   c.chapter = chapter;
   if (geared) {
     c.oere = 500;
-    for (const h of c.heroes) for (const s of E.SHOP) if (s.once) E.buy(c, h.id, s);
+    for (const h of c.heroes) for (const s of SHOP) if (s.once) E.buy(c, h.id, s);
   }
   const g = E.startChapter(c, seed);
+  // Eigener kleiner Zufall, damit auch der Bot reproduzierbar spielt.
+  let r = seed;
+  const coin = () => (r = (r * 1103515245 + 12345) % 2147483648) / 2147483648;
   for (let guard = 0; guard < 3000 && (g.status === 'play' || g.status === 'gm'); guard++) {
     if (g.status === 'gm') { for (const _ of E.gmTurn(g)) void _; continue; }
     const h = E.activeHero(g);
-    if (h.hp <= 4 && E.eat(g)) continue;
-    if (E.canSpecial(g) && !E.specialNeedsTarget(g) && h.id === 'hinnerk' && g.heroes.some((o) => E.dist(o, h) <= 1 && o.hp < o.maxHp / 2) && E.special(g)) continue;
+    if (h.hp <= 4 && E.dispatch(g, { type: 'eat' })) continue;
+    if (E.canSpecial(g) && !E.specialNeedsTarget(g) && h.id === 'hinnerk' && g.heroes.some((o) => E.dist(o, h) <= 1 && o.hp < o.maxHp / 2) && E.dispatch(g, { type: 'special' })) continue;
     if (E.canSpecial(g) && h.id !== 'hinnerk') {
       const near = g.monsters.find((m) => E.canSpecialOn(g, m));
       if (near && E.dispatch(g, { type: 'special', uid: near.uid })) continue;
     }
     const foe = g.monsters.find((m) => E.canAttack(g, m));
-    if (foe) { E.attack(g, foe); if (g.status !== 'play') continue; }
-    if (g.tiden === 0 && g.steps === 0) { E.endTurn(g); continue; }
+    if (foe) { E.dispatch(g, { type: 'attack', uid: foe.uid }); if (g.status !== 'play') continue; }
+    if (g.tiden === 0 && g.steps === 0) { E.dispatch(g, { type: 'end' }); continue; }
     const r = E.reachable(g);
     const goals: E.Pos[] = [];
     if (g.goal && !g.goalTaken && g.seen[g.goal.y][g.goal.x]) goals.push(g.goal);
@@ -37,7 +43,7 @@ function bot(ids: HeroId[], chapter: number, seed: number, campaign = 'hafen', g
     g.monsters.filter((m) => E.isActive(g, m)).forEach((m) => goals.push(m));
     let opened = false;
     for (let y = 0; y < g.h && !opened; y++) for (let x = 0; x < g.w; x++) {
-      if (E.canOpenDoor(g, x, y)) { E.openDoor(g, x, y); opened = true; break; }
+      if (E.canOpenDoor(g, x, y)) { E.dispatch(g, { type: 'door', x, y }); opened = true; break; }
     }
     if (opened) continue;
     for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
@@ -47,9 +53,9 @@ function bot(ids: HeroId[], chapter: number, seed: number, campaign = 'hafen', g
     for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
       if (E.tile(g, x, y) === 'H' && g.seen[y][x]) hidden.push({ x, y });
     }
-    if (hidden.some((p) => E.dist(p, h) <= 4) && g.tiden > 0) { E.search(g); continue; }
+    if (hidden.some((p) => E.dist(p, h) <= 4) && g.tiden > 0) { E.dispatch(g, { type: 'search' }); continue; }
     if (!goals.length) goals.push(...hidden);
-    if (!goals.length && g.tiden > 0) { E.search(g); continue; }
+    if (!goals.length && g.tiden > 0) { E.dispatch(g, { type: 'search' }); continue; }
     let best: string | null = null, bestD = Infinity;
     for (const k of r.keys()) {
       const [x, y] = k.split(',').map(Number);
@@ -59,9 +65,9 @@ function bot(ids: HeroId[], chapter: number, seed: number, campaign = 'hafen', g
     const here = Math.min(...goals.map((p) => E.dist(p, h)));
     if (best && bestD < here) {
       const [x, y] = best.split(',').map(Number);
-      E.moveTo(g, x, y);
-      if (g.status === 'play' && g.tiden === 0) E.endTurn(g);
-    } else if (g.tiden > 0 && Math.random() < 0.3) { E.search(g); } else { E.endTurn(g); }
+      E.dispatch(g, { type: 'move', x, y });
+      if (g.status === 'play' && g.tiden === 0) E.dispatch(g, { type: 'end' });
+    } else if (g.tiden > 0 && coin() < 0.3) { E.dispatch(g, { type: 'search' }); } else { E.dispatch(g, { type: 'end' }); }
   }
   return g.status === 'won' ? 'won' : 'lost';
 }

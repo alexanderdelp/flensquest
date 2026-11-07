@@ -1,0 +1,333 @@
+-- Die Akte Förde
+-- Kampagne für FlensQuest in der Sprache Kladde (siehe docs/kladde.md). 19 Gegnerarten stehen bereit.
+
+kampagne akte
+  titel: Die Akte Förde
+  bild: img/kampagne-akte.webp
+  klappentext: Das Geheimnis der verschwundenen Punkte: Sechs Missionen quer durch Flensburg, mit
+    Fälschern, Möwenbanden und einem Oberarchivar.
+  einleitung: In Flensburg stimmt was nicht. Am Hafen regnet es Strafzettel. Möwen werden wegen
+    Falschparkens verwarnt, Fischbrötchen beschlagnahmt, und Tante Inge hat den Führerschein
+    verloren, dabei hat sie gar kein Auto. Der Grund: Der legendäre Punkte-Stempel ist aus dem
+    Punktearchiv verschwunden. Seitdem fallen Punkte, wo sie wollen. Die Polizei sagt, da ist sie
+    nicht zuständig. Das Amt sagt, da ist es zuständig, aber erst ab Montag. Also bleibt nur ihr.
+  epilog: Der Punkte-Stempel liegt wieder dort, wo er hingehört: im Archiv, abgestaubt und unter
+    Verschluss. Alle falschen Punkte sind gelöscht. Tante Inge hat ihren Führerschein zurück und
+    will jetzt ein Auto kaufen, was keiner gut findet. Die Möwen bleiben vorbestraft, das stört sie
+    aber nicht. Der Oberarchivar sortiert in Zukunft Pfandflaschen, alphabetisch. Und ihr? Ihr
+    bekommt vom Rathaus einen Dankesbrief, zwei Fischbrötchen und einen Punkt wegen Betretens des
+    Archivs. Den streicht die Stadt natürlich. Irgendwann. Moin.
+  verloren: Die Akte ist zu, der Vorgang liegt beim Amt. Ihr bekommt einen Durchschlag.
+  nochmal: Na, dann eben noch mal. Flensburg läuft nicht weg, und die Förde bleibt auch, wo sie ist.
+
+spielleiter
+  karte 2× eile: Eilverfahren | Ausnahmsweise schnell: Alle Gegner laufen diese Runde 2 Felder
+    weiter.
+  karte 2× zorn: Dienstaufsicht | Der Chef schaut zu: Alle Gegner greifen diese Runde mit +1 an.
+  karte 2× flicken: Erste Hilfe nach Vorschrift | Der am schwersten getroffene Gegner heilt 3
+    Lebenspunkte.
+  karte 2× schiet: Kellernässe | Es tropft von der Decke: Jede Figur ohne Friesennerz nimmt 1
+    Schaden, den letzten Lebenspunkt aber nie.
+  karte 2× verstaerkung: Außendienst | Ein Knöllchenkobold kommt um die Ecke, mindestens 4 Felder
+    von euch weg.
+  karte 2× falle: Stolperakte | Ein loser Aktenstapel liegt jetzt 2 bis 3 Felder neben einer Figur,
+    verdeckt. Suchen findet ihn.
+  karte klau: Beschlagnahmt | Ein Fischbrötchen wird als Beweismittel eingezogen.
+  karte schlick: Formularstau | Erst ausfüllen, dann laufen: In der nächsten Runde läuft jede Figur
+    1 Feld weniger je Tide.
+  karte knoellchen: Falscher Bescheid | Per Post, ungefragt: 1 Punkt in Flensburg.
+  pause: Punkt vier fällt in den Amtsstuben der Griffel. Die Gegenseite spart Tinte.
+  pause: Für diese Schikane fehlt der Antrag in dreifacher Ausfertigung.
+  pause: Die Gegenseite macht Pause. Es gibt Filterkaffee.
+
+kapitel Unruhe an der Hafenspitze
+  ort: Hafenspitze
+  thema: 0
+  einleitung: Schietwetter an der Hafenspitze. Der Wind drückt den Regen waagerecht durch die Jacke,
+    und über den Kai wehen Strafzettel wie Herbstlaub.
+  lage: Alle Knöllchen tragen denselben schiefen Stempel. Die Spur führt in die alten Lagerhäuser,
+    wo sich neuerdings zwielichtige Gestalten herumdrücken. Irgendwo muss ein Zugang zum
+    Schmugglerkeller sein.
+  auftrag: Finde den Schmugglerkeller (Tipp: suchen!), sichere das gefälschte Knöllchen und besiege
+    Kai-Kalle.
+  ziel: besiegen kalle gegenstand gefälschtes Knöllchen 🧾 bild akte
+  belohnung: 30
+  abschluss: Kai-Kalle liegt auf den Planken und beteuert, er habe nur die Zettel verteilt. Bezahlt
+    worden sei er von einer Werkstatt in der Roten Straße. In bar. Mit Quittung.
+  überleitung: Auf dem gefälschten Knöllchen klebt Druckerschwärze und ein Hauch Remoulade. Beides
+    führt in die Rote Straße.
+  plan:
+    ########################
+    #SS..#.....#.......#.T.#
+    #SS..D..m..D...k...D...#
+    #...f#.....#.......#.s.#
+    ###D####D#####D#####D###
+    #......a...............#
+    #...........s......a...#
+    ####D#######H#########D#
+    #..T.#..............#..#
+    #.t..#..G...e.......#.k#
+    #....H..............H..#
+    #x...#...........1..#.t#
+    #..f.#..x........f..#T.#
+    ########################
+  wenn tür 8,4 aufgeht:
+    zeige Lagerhalle: Es riecht nach Teer und nassem Hund. Auf den Kisten kleben Zettel:
+      „Beschlagnahmt, wegen is so.“
+  wenn tür 14,4 aufgeht:
+    zeige Fischkisten: Drei Kisten Matjes mit Amtssiegel. Die Fische schauen vorwurfsvoll.
+    rufe moewenraeuber 16,2
+  wenn tür 12,7 oder 5,10 oder 20,10 aufgeht:
+    zeige Der Schmugglerkeller: Hinter den Brettern geht es abwärts. Stapelweise Knöllchen, und ein
+      Mann sitzt darauf, als wäre es ein Thron.
+  wenn moewenraeuber auftaucht:
+    zeige Möwenräuber: Möwenräuber: Diese Möwe trägt eine Augenbinde. Gebraucht wird sie nicht, aber
+      sie steht ihr.
+  wenn kalle auftaucht:
+    zeige Kai-Kalle: Kai-Kalle: Früher Hafenarbeiter, heute Großhändler für Ärger. Wirft mit allem,
+      was nicht festgeschraubt ist.
+
+kapitel Das Geheimnis der Roten Straße
+  ort: Rote Straße
+  thema: 1
+  einleitung: Die Rote Straße ist hübsch, solange man vorn bleibt. Hinten, in den Höfen, wird es
+    eng, und die Fischbrötchen schmecken nach Toner.
+  lage: Hier drucken Fälscher die falschen Punktebescheide. Händler schauen weg, wenn ihr fragt, und
+    in den Gassen liegen Probedrucke. Ihr braucht die Beweisakte und ein ernstes Wort mit dem Chef.
+  auftrag: Sichere die Beweisakte, stelle Fälscher-Fiete und verschwinde durch den Hinterhof.
+  ziel: bergen Beweisakte 📁 bild akte endgegner fiete
+  belohnung: 40
+  abschluss: Fiete gesteht unter Tränen: Rechtschreibung sei nie seine Stärke gewesen. Die Aufträge
+    kamen per Möwe, vom Nordertor. Bezahlt wurde in Fischbrötchen.
+  überleitung: In der Beweisakte steckt eine einzelne Feder mit Dienststempel. Das Nordertor also.
+    Hoffentlich ist keiner allergisch.
+  plan:
+    ########################
+    #SS.#......#.a...#...T.#
+    #SS.D..k...D.....D.....#
+    #...#......#.f...#..s..#
+    #.t.##D#####D#########D#
+    #...#.....#.....#......#
+    ##D##.x...D..p..D..G...#
+    #...#.....#.....#...e..#
+    #.k.####D#####D##D######
+    #...#........#.........#
+    #.T.D....a...#...t.....#
+    #...#..f.....D.....2...#
+    #..X#.....s..#.......f.#
+    ########################
+  wenn tür 6,4 aufgeht:
+    zeige Enger Hof: Zwischen den Backsteinwänden passt gerade so ein Fahrrad durch. Am Boden liegen
+      Probedrucke: „Punckte“.
+  wenn tür 10,6 aufgeht:
+    zeige Verdächtiger Imbiss: Ein Stand ohne Schild. Der Händler legt den Finger an die Lippen und
+      zeigt nach hinten.
+    rufe kellerkassierer 14,5
+  wenn tür 16,6 aufgeht:
+    zeige Die Werkstatt: Eine Druckerpresse stampft im Takt. An der Wand hängt ein Plan von
+      Flensburg mit lauter roten Punkten.
+  wenn tür 13,11 aufgeht:
+    zeige Fietes Büro: Hier riecht es nach Tinte und Angst. „Ich bin nur ausführendes Organ!“, ruft
+      jemand.
+  wenn kellerkassierer auftaucht:
+    zeige Kellerkassierer: Kellerkassierer: Kassiert Kellergebühren für Keller, die ihm nicht
+      gehören. Schlägt hart zu und gibt kein Wechselgeld.
+  wenn fiete auftaucht:
+    zeige Fälscher-Fiete: Fälscher-Fiete: Tintenfinger, Lesebrille, kein Rückgrat. Schmeißt mit
+      nassen Bescheiden.
+
+kapitel Die Möwen vom Nordertor
+  ort: Nordertor
+  thema: 2
+  einleitung: Am Nordertor ist es laut. Sehr laut. Jede Zinne ist besetzt, und alle Augen folgen
+    eurem Proviant.
+  lage: Eine organisierte Möwenbande kontrolliert den Weg zum alten Tunnel. Sie arbeitet im
+    Schichtdienst und nimmt Bestechung nur in Form von Pommes. Ohne ihren Hauptmann kommt ihr hier
+    nicht durch.
+  auftrag: Finde den verborgenen Weg, nimm den Befehlsbrief an dich, besiege Hauptmann Krischan und
+    erreiche den Tunnel.
+  ziel: bergen Befehlsbrief 🪶 bild feder endgegner krischan
+  belohnung: 45
+  abschluss: Hauptmann Krischan zieht beleidigt ab, ohne Mütze. Der Befehlsbrief ist auf altem
+    Museumspapier geschrieben, mit dem Vermerk: „Archivwache informieren.“
+  überleitung: Museumspapier also. Ihr klopft euch die Federn von der Jacke. Oben auf dem
+    Museumsberg ist bestimmt mehr Ruhe. Das sagt man so.
+  plan:
+    ########################
+    #SS.....w......m...w...#
+    #SS..x......f.......x..#
+    #.....m..w.......m.....#
+    #..f.....##D##.....f...#
+    #....w...#...#...w.....#
+    #........#.T.#.........#
+    ####D#####H########D####
+    #......#.........#.....#
+    #..a...D....3....D..k..#
+    #......#..G......#.....#
+    ###D####.........####D##
+    #..t..X#....f....#..T..#
+    ########################
+  wenn tür 11,4 aufgeht:
+    zeige Das Tor: In der Nische steht ein Schild: „Wachstube. Zutritt nur mit Feder.“
+  wenn tür 10,7 aufgeht:
+    zeige Der Gang im Mauerwerk: Ein Stein gibt nach. Dahinter gähnt die Wachstube, und es riecht
+      nach sehr viel Möwe.
+    rufe moewenraeuber 12,10
+    rufe moewenraeuber 9,8
+  wenn tür 4,7 aufgeht:
+    zeige Federlager: Federn bis zum Knöchel. Jemand hat hier ordentlich sortiert, nach Dienstgrad.
+  wenn tür 3,11 aufgeht:
+    zeige Tunnelzugang: Kalte Luft zieht herauf. Dahinter liegt der alte Tunnel, Baujahr unbekannt,
+      Zustand bekannt.
+  wenn krischan auftaucht:
+    zeige Hauptmann Krischan: Hauptmann Krischan: Größte Möwe am Platz, Mütze aus Dienstbeständen.
+      Fliegt schnell, kreischt lauter und hat noch nie etwas bezahlt.
+
+kapitel Der Keller des Museumsbergs
+  ort: Museumsberg
+  thema: 3
+  einleitung: Unter dem Museumsberg liegt mehr als Kunst. Eine Treppe, die auf keinem Plan steht,
+    führt in einen vergessenen Keller voller Regale.
+  lage: Hier lagern die Gründungsakten des Punktearchivs. Wer wissen will, wer hinter allem steckt,
+    muss hinein. Der Keller zeigt nicht alles auf den ersten Blick, und seine Wache schläft nicht.
+  auftrag: Suche die verborgenen Räume ab, finde die Gründungsakte und besiege den Archivwächter.
+  ziel: besiegen waechter gegenstand Gründungsakte 📜 bild akte
+  belohnung: 50
+  abschluss: Die Akte nennt einen Namen: Detlev Stempelfeldt, Punkteprüfer, vor Jahren
+    strafversetzt, weil er seine eigene Oma angezeigt hat. Heute nennt er sich Oberarchivar.
+  überleitung: Eine Randnotiz nennt seine neue Dienststelle: „unter der Förde, Eingang nasse Füße“.
+    Packt die Gummistiefel ein.
+  plan:
+    ########################
+    #SS.#.....#......#..z..#
+    #SS.D..r..D..z...H.....#
+    #...#.z...#......#..G..#
+    #.t.#######D######D#####
+    #...#.......#..........#
+    ##D##...k...H....r.....#
+    #...#.......#.......z..#
+    #.T.#####D######H#######
+    #...#........#.........#
+    #.k.D..a.....#....4....#
+    #...#..p.....#.........#
+    #.z.#.....T..#..z...z..#
+    ########################
+  wenn tür 4,2 aufgeht:
+    zeige Saal der Schaustücke: Staub, Glasvitrinen und ein Modellschiff, das euch anzusehen
+      scheint.
+  wenn tür 11,4 aufgeht:
+    zeige Hauptgang: Die Regale gehen bis zur Decke. Jemand hat kürzlich mit dem Finger „Moin“ in
+      den Staub geschrieben.
+  wenn tür 12,6 aufgeht:
+    zeige Vergessenes Depot: Hier war seit Kaisers Zeiten niemand. Dachte man.
+    rufe rumgeist 15,7
+  wenn tür 17,2 oder 18,4 aufgeht:
+    zeige Aktenkammer: Eine Kammer voller Gründungsakten, sortiert nach Laune. Irgendwo hier muss
+      die richtige sein.
+  wenn tür 16,8 aufgeht:
+    zeige Das Gewölbe: Etwas Großes setzt sich schwerfällig in Bewegung. Es klirrt wie ein
+      Karteikasten voller Besteck.
+  wenn waechter auftaucht:
+    zeige Archivwächter: Archivwächter: Ein wandelnder Aktenschrank mit Dienstauftrag. Langsam, gut
+      gepanzert und nicht zu überzeugen.
+  wenn punktepruefer auftaucht:
+    zeige Punkteprüfer: Punkteprüfer: Grauer Anzug, spitzer Bleistift. Stempelt aus der Ferne und
+      notiert jede Reaktion.
+
+kapitel Der versunkene Förde-Keller
+  ort: Unter der Förde
+  thema: 5
+  einleitung: Unter der Förde tropft es. Alte Pumpen husten im Dunkeln, und die Türen sind so
+    rostig, dass sie beim Öffnen um Hilfe rufen.
+  lage: Stempelfeldt hat hier seine Kommandozentrale eingerichtet. Sein Pumpenmeister hält den
+    Komplex trocken, so gut es geht. Irgendwo liegt der Plan, der den letzten Zugang zum
+    Punktearchiv zeigt.
+  auftrag: Durchquere den Keller, sichere den Bauplan, besiege Pumpenmeister Pröhl und erreiche den
+    Ausgang.
+  ziel: bergen Bauplan 🗺️ bild karte endgegner proehl
+  belohnung: 60
+  abschluss: Pröhl legt den Schraubenschlüssel nieder: Das Wasser stehe ihm bis zum Hals, sagt er,
+    und sein Chef sowieso. Auf dem Bauplan steht in Rot: „Ganz Flensburg, 8 Punkte. Montag.“
+  überleitung: Heute ist Sonntag. Ihr nehmt die letzte Treppe nach oben. Das Punktearchiv wartet,
+    und es hat Öffnungszeiten.
+  plan:
+    ########################
+    #SS........D......o....#
+    #SS........#......u....#
+    ##########D#########D###
+    #..T.....#.....a..#....#
+    #.k...o..#..e.....#..e.#
+    #........#........D....#
+    ###D###########D########
+    #......t.#....p........#
+    #..u.....H........o....#
+    #.G......#.....5.......#
+    ###############D########
+    #T....D.......X....f...#
+    ########################
+  wenn tür 11,1 aufgeht:
+    zeige Pumpenhalle: Das Wasser steht knöcheltief. Eine Pumpe seufzt, eine andere gibt auf.
+    rufe schlurfer 15,2
+  wenn tür 10,3 aufgeht:
+    zeige Nasser Gang: An der Wand hängt ein Dienstplan. Alle Namen sind durchgestrichen, außer
+      einem.
+  wenn tür 9,9 oder 3,7 aufgeht:
+    zeige Planungsraum: Karten auf nassen Tischen. Hier wird Flensburg verwaltet, Straße für Straße.
+  wenn tür 15,7 aufgeht:
+    zeige Kommandozentrale: Hebel, Rohre, ein Stuhl mit Namensschild. Jemand hat das Radio
+      angelassen: Seewetterbericht.
+    rufe schlurfer 11,10
+  wenn tür 15,11 aufgeht:
+    zeige Letzte Tür: Hinter der Tür führt eine Treppe aufwärts. Es riecht nach Papier und
+      Bohnerwachs.
+  wenn schlurfer auftaucht:
+    zeige Förde-Schlurfer: Förde-Schlurfer: Ein Kellerbewohner, der zu lange im Nassen stand.
+      Langsam, zäh, und er tropft einem auf die Schuhe.
+  wenn proehl auftaucht:
+    zeige Pumpenmeister Pröhl: Pumpenmeister Pröhl: Taucherhelm, Schraubenschlüssel und schlechte
+      Laune. Spritzt über zwei Felder.
+
+kapitel Das letzte Urteil im Punktearchiv
+  ort: Punktearchiv
+  thema: 4
+  einleitung: Karteikästen bis unter die Decke, Linoleum bis zum Horizont. Das Punktearchiv ist
+    still. So still, dass man das Stempelkissen trocknen hört.
+  lage: In der Haupthalle wartet Detlev Stempelfeldt, der selbst ernannte Oberarchivar. Vor ihm
+    liegt der echte Punkte-Stempel. Sobald es Montag wird, bekommt ganz Flensburg acht Punkte.
+  auftrag: Durchquere das Archiv, besiege den Oberarchivar und hol den Punkte-Stempel zurück.
+  ziel: besiegen oberarchivar gegenstand Punkte-Stempel 🔏 bild stempel
+  belohnung: 120
+  abschluss: Der Oberarchivar sinkt auf einen Stapel Durchschläge. „Das hat ein Nachspiel“, flüstert
+    er. Dann fällt ihm auf, dass er dafür zuständig wäre.
+  plan:
+    ########################
+    #SS.z..#.........#..z.T#
+    #SS....D..p...p..D.....#
+    #..z...#.z.....z.#..e..#
+    ####D#####D###D####D####
+    #.....#...........#....#
+    #.e...#..z.....z..#.p..#
+    #.....D...........D....#
+    #..z..#.....6.....#..z.#
+    #.....#..z.....z..#....#
+    #.T...#....G......#..T.#
+    #.....#...........#....#
+    #..a..#.....z.....#.a..#
+    ########################
+  wenn tür 4,4 aufgeht:
+    zeige Anmeldung: Bitte eine Nummer ziehen. Die Anzeige steht auf 4711, euer Zettel auf 12.
+    rufe punktepruefer 3,6
+  wenn tür 10,4 oder 14,4 oder 6,7 oder 18,7 aufgeht:
+    zeige Die große Halle: Oben auf dem Pult sitzt ein Mann mit Ärmelschonern. „Sie haben keinen
+      Termin“, sagt er sehr leise.
+  wenn tür 19,4 aufgeht:
+    zeige Ablage Nord: Regale voller Einsprüche, alle ungeöffnet. Der jüngste ist von 1974.
+  wenn oberarchivar auftaucht:
+    zeige Oberarchivar: Der Oberarchivar: Detlev Stempelfeldt, Ärmelschoner, Lesebrille an der
+      Kette. Er hat alles abgeheftet, auch euch. Sein Stempel trifft über drei Felder, und er hat
+      nie einen Fehler gemacht, sagt er.
+  wenn endgegner halb:
+    zeige Widerspruch abgelehnt: „Für diesen Fall gibt es ein Formular!“ Der Oberarchivar schlägt
+      auf die Klingel, und zwei Punkteprüfer stürmen herein.
+    rufe punktepruefer 8,6
+    rufe punktepruefer 15,6

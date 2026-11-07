@@ -1,5 +1,8 @@
+import { addOwn, isBuiltin, removeOwn, sourceOf } from '../../campaigns';
 import { HEROES, PUNKTE_LIMIT, type HeroId } from '../../content';
-import { campaignById, campaigns, newProgress } from '../../core';
+import { campaignById, campaigns, hasCampaign, newProgress } from '../../core';
+import { formatDiagnostic } from '../../kladde';
+import { loadCampaignSources, saveCampaignSources } from '../../platform/storage';
 import { versionLabel } from '../../version';
 import { esc, html, LOGO, on } from '../dom';
 import { save, session } from '../session';
@@ -10,7 +13,9 @@ import { campaignIntro, chapterIntro } from './story';
 
 export function title() {
   const p = session.progress;
-  const def = p ? campaignById(p.campaign) : null;
+  // Alte Spielstände ohne Kampagne gehören zur ersten; ist eine eigene Kampagne weg, gibt es kein „Weiter“.
+  const id = p?.campaign ?? campaigns()[0].id;
+  const def = p && hasCampaign(id) ? campaignById(id) : null;
   const hasSave = p && def && p.chapter < def.chapters.length;
   html(`<main class="screen title">
     <h1 class="sr">FlensQuest</h1>
@@ -35,20 +40,71 @@ export function title() {
   on('[data-go]', () => chapterIntro());
 }
 
-export function choose() {
+export interface Notice { ok?: string; errors?: string[] }
+
+/** Kampagnenauswahl; eigene Kladde-Dateien lassen sich hier laden, speichern und entfernen. */
+export function choose(notice: Notice = {}) {
   html(`<main class="screen">
     ${LOGO}
     <h2>Welches Abenteuer soll es sein?</h2>
-    <div class="cards campaigns">${campaigns().map((c) => `<button class="card" data-campaign="${esc(c.id)}"
-        data-say="${esc(`${c.title}. ${c.chapters.length} Kapitel. ${c.blurb}`)}">
-      ${c.image ? `<img class="cimg" src="${esc(c.image)}" alt="${esc(c.title)}">` : `<b class="ctitle">${esc(c.title)}</b>`}
-      <small><b>${c.chapters.length} Kapitel</b> · ${esc(c.blurb)}</small>
-    </button>`).join('')}</div>
-    <div class="row"><button data-back>Zurück</button></div>
+    <div class="cards campaigns">${campaigns().map((c) => `<div class="cwrap">
+      <button class="card" data-campaign="${esc(c.id)}" data-say="${esc(`${c.title}. ${c.chapters.length} Kapitel. ${c.blurb}`)}">
+        ${c.image ? `<img class="cimg" src="${esc(c.image)}" alt="${esc(c.title)}">` : `<b class="ctitle">${esc(c.title)}</b>`}
+        <small><b>${c.chapters.length} Kapitel</b>${isBuiltin(c.id) ? '' : ' · <span class="badge">eigene</span>'} · ${esc(c.blurb)}</small>
+      </button>
+      <div class="cacts">
+        <button class="mini" data-export="${esc(c.id)}" title="Als Kladde-Datei speichern, etwa als Vorlage">⬇ Kladde</button>
+        ${isBuiltin(c.id) ? '' : `<button class="mini" data-remove="${esc(c.id)}" title="Eigene Kampagne entfernen">✕ Entfernen</button>`}
+      </div>
+    </div>`).join('')}</div>
+    ${notice.ok ? `<p class="notice ok" role="status">${esc(notice.ok)}</p>` : ''}
+    ${notice.errors ? `<div class="notice bad" role="alert"><b>Die Kampagne ließ sich nicht laden.</b>
+      <ul>${notice.errors.map((e) => `<li>${esc(e)}</li>`).join('')}</ul></div>` : ''}
+    <div class="row">
+      <button data-back>Zurück</button>
+      <button data-load>📂 Eigene Kampagne laden</button>
+      <input type="file" accept=".kladde,.txt,text/plain" data-file hidden>
+    </div>
+    <p class="hint">Eigene Kampagnen schreibt man in der Sprache Kladde. Am einfachsten: eine Kampagne als Vorlage speichern, ändern und hier laden.</p>
     <p class="version">${versionLabel()}</p>
   </main>`);
   on('[data-back]', title);
   on('[data-campaign]', (el) => { session.chosen = el.dataset.campaign!; pick(); });
+  on('[data-export]', (el) => download(el.dataset.export!));
+  on('[data-remove]', (el) => removeCampaign(el.dataset.remove!));
+  const file = document.querySelector<HTMLInputElement>('[data-file]')!;
+  on('[data-load]', () => file.click());
+  file.addEventListener('change', async () => {
+    const f = file.files?.[0];
+    if (f) loadCampaign(await f.text());
+  });
+}
+
+/** Lädt eine Kladde-Datei; Fehler erscheinen mit Zeilennummer. */
+export function loadCampaign(source: string) {
+  const { result, sources } = addOwn(source, loadCampaignSources());
+  if (!result.campaign) { choose({ errors: result.errors.map(formatDiagnostic) }); return; }
+  saveCampaignSources(sources);
+  const hints = result.warnings.length ? ` ${result.warnings.map(formatDiagnostic).join(' ')}` : '';
+  choose({ ok: `„${result.campaign.title}“ ist geladen: ${result.campaign.chapters.length} Kapitel.${hints}` });
+}
+
+function removeCampaign(id: string) {
+  const def = campaignById(id);
+  if (!confirm(`„${def.title}“ entfernen? Die Datei bleibt bei dir, nur hier im Spiel ist sie dann weg.`)) return;
+  saveCampaignSources(removeOwn(id, loadCampaignSources()));
+  if (session.progress?.campaign === id) { session.progress = null; save(); }
+  choose({ ok: `„${def.title}“ ist entfernt.` });
+}
+
+function download(id: string) {
+  const src = sourceOf(id, loadCampaignSources());
+  if (!src) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([src], { type: 'text/plain;charset=utf-8' }));
+  a.download = `${id}.kladde`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 export function pick() {
@@ -85,7 +141,7 @@ export function pick() {
     session.picked = picked.includes(id) ? picked.filter((p) => p !== id) : [...picked, id];
     pick();
   });
-  on('[data-back]', choose);
+  on('[data-back]', () => choose());
   on('[data-gm]', (el) => { session.gmHuman = el.dataset.gm === '1'; pick(); });
   on('[data-start]', () => {
     session.progress = newProgress(session.picked, session.gmHuman, session.chosen);

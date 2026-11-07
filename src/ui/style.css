@@ -56,7 +56,17 @@ small { font-weight: 400; }
 .card.on { background: #fbeec8; box-shadow: inset 0 0 0 3px var(--ziegel); }
 .card.on:hover:not(:disabled) { background: #fbeec8; }
 .campaigns { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
-.campaigns .card { padding: 14px 18px 18px; gap: 8px; }
+.campaigns .card { padding: 14px 18px 18px; gap: 8px; width: 100%; height: 100%; }
+.cwrap { display: flex; flex-direction: column; gap: 6px; }
+.cacts { display: flex; gap: 6px; justify-content: center; }
+.cacts button { min-height: 44px; }
+.ctitle { font-size: 1.3rem; padding: 18px 6px; color: var(--foerde); }
+.badge { font-size: .75rem; padding: 1px 8px; border-radius: 999px; background: var(--gold); }
+.notice { margin: 0; padding: 10px 14px; border-radius: 10px; width: 100%; }
+.notice.ok { background: #e3f3e8; }
+.notice.bad { background: #fbe4dc; }
+.notice ul { margin: 6px 0 0; padding-left: 1.2em; }
+.hint { margin: 0; font-size: .85rem; opacity: .8; }
 .face { width: 96px; height: 96px; image-rendering: pixelated; }
 .stats { font-size: .9rem; }
 

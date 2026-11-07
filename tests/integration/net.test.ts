@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import * as E from '../support/engine';
+import '../support/fixture';
+import * as E from '../../src/core';
 import { LocalTransport, allowed, snapshot, type NetMessage, type Seat } from '../../src/net/transport';
 
-const start = (gm = false) => E.startChapter(E.newCampaign(['frauke', 'joern'], gm), 42);
+const start = (gm = false) => E.startChapter(E.newProgress(['frauke', 'joern'], gm, 'hafen'), 42);
 const clean = (g: E.Game) => JSON.stringify({ ...g, fx: [] });
 
 function script(g: E.Game): E.Action[] {

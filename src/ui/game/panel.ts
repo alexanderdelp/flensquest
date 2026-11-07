@@ -1,7 +1,7 @@
 import { HEROES, MONSTERS, PUNKTE_LIMIT } from '../../content';
 import * as E from '../../core';
 import type { Game, Hero } from '../../core';
-import { esc } from '../dom';
+import { esc } from '../text';
 
 /** HTML der Kopfleiste und der Seitenleiste. Reine Funktionen: gleicher Spielstand, gleiches HTML. */
 

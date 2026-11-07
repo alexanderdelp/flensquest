@@ -17,6 +17,12 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/**/*.ts'],
       reporter: ['text-summary', 'html'],
+      // Mindestabdeckung für Regeln und Sprache; die Oberfläche sichern die E2E-Tests.
+      thresholds: {
+        'src/core/**': { lines: 95, branches: 80, functions: 90 },
+        'src/kladde/**': { lines: 90, branches: 75, functions: 95 },
+        'src/campaigns/**': { lines: 95 },
+      },
     },
   },
 });

@@ -17,3 +17,6 @@ export const MAP_CHARS: Record<string, string> = {
 /** Bilder für den Ziel-Gegenstand. */
 export const GOAL_SPRITES = ['logbuch', 'schluessel', 'karte', 'akte', 'feder', 'stempel'] as const;
 export type GoalSprite = typeof GOAL_SPRITES[number];
+
+/** Anzahl der Raumthemen für Boden und Wände (0 bis THEME_COUNT - 1). */
+export const THEME_COUNT = 6;
