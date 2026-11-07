@@ -67,7 +67,13 @@ small { font-weight: 400; }
 .punkte i.on { background: var(--ziegel); border-color: var(--ziegel); }
 .punkte small { margin-left: 6px; }
 .table { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 8px; padding: 8px; }
-.boardwrap { min-width: 0; min-height: 0; overflow: hidden; border-radius: 8px; }
+.boardwrap { position: relative; min-width: 0; min-height: 0; overflow: hidden; border-radius: 8px; }
+.tilt {
+  position: absolute; left: 10px; bottom: 10px; display: flex; align-items: center; gap: 8px;
+  padding: 6px 12px; border-radius: 10px; background: rgba(11, 39, 51, .85); color: var(--moewe); font-size: .85rem;
+}
+.tilt span { min-width: 68px; }
+.tilt input { width: 170px; height: 28px; accent-color: var(--gold); }
 .board { display: block; cursor: pointer; touch-action: manipulation; image-rendering: pixelated; }
 
 .side { min-height: 0; display: flex; flex-direction: column; gap: 8px; background: var(--sand); border-radius: 10px; padding: 10px; }

@@ -6,6 +6,7 @@ import { Board, type Mark } from './ui/board';
 import { heroSprite, objects, toDataUrl } from './ui/sprites';
 
 const SAVE = 'flensquest:v1';
+const ANGLE = 'flensquest:winkel';
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
 let campaign: Campaign | null = load();
@@ -226,6 +227,19 @@ function panel() {
   });
 }
 
+function setupTilt(b: Board) {
+  const input = app.querySelector<HTMLInputElement>('[data-tilt]')!;
+  const label = app.querySelector<HTMLElement>('[data-angle]')!;
+  const apply = (v: number) => { b.angle = v; input.value = String(v); label.textContent = `${v}°`; };
+  let stored = 60;
+  try { stored = Number(localStorage.getItem(ANGLE)) || 60; } catch { /* Speichern ist optional */ }
+  apply(Math.min(90, Math.max(35, stored)));
+  input.addEventListener('input', () => {
+    apply(Number(input.value));
+    try { localStorage.setItem(ANGLE, input.value); } catch { /* Speichern ist optional */ }
+  });
+}
+
 function board() {
   const g = game!;
   if (!app.querySelector('.game')) {
@@ -233,11 +247,16 @@ function board() {
     html(`<main class="game">
       <header class="top"></header>
       <div class="table">
-        <div class="boardwrap"><canvas class="board" aria-label="Spielbrett"></canvas></div>
+        <div class="boardwrap">
+          <canvas class="board" aria-label="Spielbrett"></canvas>
+          <label class="tilt"><span>Blick <b data-angle></b></span>
+            <input type="range" min="35" max="90" step="5" data-tilt aria-label="Blickwinkel"></label>
+        </div>
         <aside class="side"></aside>
       </div>
     </main>`);
     view = new Board(app.querySelector<HTMLCanvasElement>('.board')!, tapTile);
+    setupTilt(view);
   }
   view!.game = g;
   view!.marks = marks(g);
