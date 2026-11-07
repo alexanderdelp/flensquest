@@ -38,7 +38,7 @@ npm run build
 - **Punkte in Flensburg:** Fallen, Knöllchen, gestürzte Figuren und der Stempel jede vierte Runde bringen Punkte. Bei 8 ist der Lappen weg und das Kapitel verloren.
 - **Spielleiter:** Er hat eine Hand aus Karten und bezahlt sie mit Stempeltinte: 2 zum Start, 2 mehr je Runde, höchstens 8. Jede Runde kommt eine Karte dazu, höchstens 5 auf der Hand. Karten kosten 2 bis 6 Tinte: Eile, härtere Schläge, Gegner flicken, Schietwetter, Verstärkung, verdeckte Fallen, Fischbrötchen klauen, Schlick oder ein Punkt in Flensburg. Rechner und Mensch spielen nach denselben Regeln.
 - **Hafenkiosk:** Zwischen den Kapiteln gibt es Friesennerz, Bootshaken, Gummistiefel, Katzenohren und Fischbrötchen für Öre.
-- **Bedienung:** Tippen oder Klicken aufs Brett; am PC laufen auch die Pfeiltasten. Zoom per Knöpfen, Mausrad oder zwei Fingern.
+- **Bedienung:** Tippen oder Klicken aufs Brett; am PC laufen auch die Pfeiltasten, und mit der Maus zeigen Tooltips Werte zu Gegnern, Figuren und Gegenständen. Zoom per Knöpfen, Mausrad oder zwei Fingern.
 
 ## Ton
 

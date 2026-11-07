@@ -556,31 +556,97 @@ export const THEMES: Theme[] = [
   { floor: ['#6f8a90', '#647e85'], line: '#465e66', top: '#4d6168', face: '#5a6f6a', mortar: '#3b4c49', fog: '#071a22' },
 ];
 
+/** Hellt eine Farbe auf (k > 0) oder dunkelt sie ab (k < 0), k zwischen -1 und 1. */
+export function shade(hex: string, k: number) {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => Math.round(k > 0 ? c + (255 - c) * k : c * (1 + k)));
+  return `#${ch.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** Kleiner Zufall aus einer Zahl, damit jede Variante gleich aussieht, egal wann sie gezeichnet wird. */
+const rnd = (seed: number) => {
+  let s = seed * 2654435761 >>> 0;
+  return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+};
+
+/** Bodenfliesen: 24 Varianten, die meisten schlicht, einzelne mit Riss, Pfütze, Gräte, Fleck, Kies oder Muschel. */
 export function floorTile(t: number, variant: number) {
-  const th = THEMES[t], v = variant % 4;
+  const th = THEMES[t], v = variant % 24;
   return sprite(`t:f:${t}:${v}`, (p) => {
-    p(0, 0, 32, 32, th.floor[v % 2]);
+    const r = rnd(v * 31 + t);
+    p(0, 0, 32, 32, shade(th.floor[v % 2], (r() - 0.5) * 0.08));
     p(0, 31, 32, 1, th.line); p(31, 0, 1, 32, th.line);
     if (t === 0 || t === 3) {
+      // Holzdielen mit versetzten Stößen
       p(0, 10, 32, 1, th.line); p(0, 21, 32, 1, th.line);
-      p(8 + v * 5, 0, 1, 10, th.line); p(20 - v * 3, 11, 1, 10, th.line); p(4 + v * 6, 22, 1, 9, th.line);
+      p(8 + (v % 4) * 5, 0, 1, 10, th.line); p(20 - (v % 4) * 3, 11, 1, 10, th.line); p(4 + (v % 4) * 6, 22, 1, 9, th.line);
+      if (v % 3 === 0) p(3 + (v % 5) * 4, 4 + (v % 2) * 12, 1, 1, th.line);
+      if (v % 4 === 1) p(12 + (v % 3) * 5, 15, 5, 1, shade(th.floor[0], -0.12));
     } else {
+      // Steinplatten in vier Teilen, jede leicht anders getönt
+      const k = () => (r() - 0.5) * 0.1;
+      p(0, 0, 15, 15, shade(th.floor[v % 2], k())); p(16, 0, 15, 15, shade(th.floor[v % 2], k()));
+      p(0, 16, 7, 15, shade(th.floor[v % 2], k())); p(8, 16, 15, 15, shade(th.floor[v % 2], k())); p(24, 16, 7, 15, shade(th.floor[v % 2], k()));
       p(15, 0, 1, 15, th.line); p(0, 15, 32, 1, th.line); p(7, 16, 1, 15, th.line); p(23, 16, 1, 15, th.line);
     }
-    if (t === 5 && v % 2 === 0) { p(6, 8 + v * 3, 14, 5, 'rgba(120,190,215,.55)'); p(9, 9 + v * 3, 6, 1, 'rgba(225,245,250,.7)'); }
-    if (v === 1) p(5, 6, 3, 2, th.line);
-    if (v === 2) p(22, 24, 4, 2, th.line);
+    if (t === 5 && v % 2 === 0) { p(6, 8 + (v % 4) * 3, 14, 5, 'rgba(120,190,215,.55)'); p(9, 9 + (v % 4) * 3, 6, 1, 'rgba(225,245,250,.7)'); }
+    switch (v) {
+      case 5: // Riss
+        p(6, 5, 1, 3, th.line); p(7, 8, 1, 2, th.line); p(8, 10, 1, 3, th.line); p(9, 13, 2, 1, th.line); p(11, 14, 1, 2, th.line);
+        break;
+      case 9: // Pfütze
+        p(17, 19, 9, 4, 'rgba(110,170,200,.45)'); p(19, 18, 5, 1, 'rgba(110,170,200,.45)'); p(19, 20, 3, 1, 'rgba(230,245,250,.6)');
+        break;
+      case 11: // Fischgräte
+        p(9, 21, 9, 1, '#e9e2cf'); for (let i = 0; i < 4; i++) { p(10 + i * 2, 19, 1, 2, '#e9e2cf'); p(10 + i * 2, 22, 1, 2, '#e9e2cf'); }
+        p(18, 20, 2, 3, '#e9e2cf'); p(7, 20, 2, 3, '#e9e2cf');
+        break;
+      case 13: // Rumfleck
+        p(20, 6, 6, 4, 'rgba(70,30,15,.25)'); p(21, 5, 4, 6, 'rgba(70,30,15,.25)');
+        break;
+      case 14: // Kies und Sand
+        p(4, 25, 2, 2, shade(th.line, 0.2)); p(9, 27, 1, 1, shade(th.line, 0.2)); p(26, 4, 2, 1, shade(th.line, 0.2)); p(23, 8, 1, 1, shade(th.line, 0.2));
+        break;
+      case 15: // Muschel
+        p(24, 24, 4, 3, '#efe3d0'); p(25, 23, 2, 1, '#efe3d0'); p(25, 25, 1, 2, '#c9b79c'); p(26, 25, 1, 2, '#c9b79c');
+        break;
+      default:
+    }
   });
 }
 
+/** Wandfront: Ziegel einzeln getönt, dazu ab und zu Moos, ein Riss, eine nasse Spur oder ein Aushang. */
 export function wallFace(t: number, variant: number) {
-  const th = THEMES[t];
-  return sprite(`t:wf:${t}:${variant % 2}`, (p) => {
-    p(0, 0, 32, 32, th.face);
+  const th = THEMES[t], v = variant % 12;
+  return sprite(`t:wf:${t}:${v}`, (p) => {
+    const r = rnd(v * 17 + t * 5);
+    p(0, 0, 32, 32, th.mortar);
     for (let row = 0; row < 4; row++) {
-      p(0, row * 8 + 7, 32, 1, th.mortar);
-      for (let x = (row + variant) % 2 ? 0 : 8; x < 32; x += 16) p(x, row * 8, 1, 8, th.mortar);
+      const off = (row + v) % 2 ? 0 : 8;
+      for (let x = off - 16; x < 32; x += 16) {
+        const x0 = Math.max(0, x + 1), x1 = Math.min(32, x + 16);
+        if (x1 > x0) p(x0, row * 8, x1 - x0, 7, shade(th.face, (r() - 0.5) * 0.18));
+      }
     }
     p(0, 0, 32, 2, 'rgba(0,0,0,.2)');
+    switch (v) {
+      case 3: // Moos am Fuß
+        p(0, 27, 7, 5, 'rgba(70,110,50,.75)'); p(2, 25, 3, 2, 'rgba(70,110,50,.6)'); p(20, 29, 9, 3, 'rgba(70,110,50,.7)');
+        break;
+      case 5: // Riss
+        p(18, 3, 1, 4, 'rgba(0,0,0,.45)'); p(17, 7, 1, 3, 'rgba(0,0,0,.45)'); p(18, 10, 1, 5, 'rgba(0,0,0,.45)'); p(19, 15, 1, 3, 'rgba(0,0,0,.45)');
+        break;
+      case 7: // Nasse Spur
+        p(10, 2, 2, 24, 'rgba(40,60,80,.4)'); p(10, 26, 3, 2, 'rgba(120,180,210,.5)');
+        break;
+      case 9: // Aushang vom Amt
+        p(11, 9, 10, 12, '#efe8d6'); p(12, 11, 8, 1, '#7a6a4a'); p(12, 13, 6, 1, '#7a6a4a'); p(12, 15, 7, 1, '#7a6a4a');
+        p(16, 18, 4, 2, '#b5302a'); p(15, 9, 2, 1, '#9a9a9a');
+        break;
+      case 11: // Fehlender Ziegel
+        p(17, 16, 14, 7, 'rgba(20,10,8,.55)');
+        break;
+      default:
+    }
   });
 }

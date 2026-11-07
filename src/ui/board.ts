@@ -2,7 +2,7 @@ import type { Fx, Game, Pos } from '../game/engine';
 import { activeHero, chapterOf, hkey, isActive, mkey } from '../game/engine';
 import { HEROES, MONSTERS, type HeroId, type MonsterId } from '../game/data';
 import {
-  SPRITE, THEMES, floorTile, heroDown, heroSprite, monsterSprite, moodOf, objects, piet, wallFace,
+  SPRITE, THEMES, floorTile, heroDown, heroSprite, monsterSprite, moodOf, objects, piet, shade, wallFace,
 } from './sprites';
 import { ZOOM_MAX, ZOOM_MIN, applyZoom, makeView, panLimit, project, unproject, type View } from './projection';
 
@@ -67,6 +67,8 @@ export class Board {
   private pointers = new Map<number, { x: number; y: number }>();
   private dragDist = 0;
   private swallowClick = false;
+  /** Meldet das Feld unter der Maus, etwa für Tooltips; null, wenn die Maus das Brett verlässt. */
+  onHover: (p: Pos | null, clientX: number, clientY: number) => void = () => undefined;
   /** Meldet Änderungen am Zoom, etwa für die Anzeige der Knöpfe. */
   onZoom: () => void = () => undefined;
   private raf = 0;
@@ -86,8 +88,11 @@ export class Board {
       const p = this.tileAt(e.clientX, e.clientY);
       if (p) this.onTile(p);
     });
-    canvas.addEventListener('mousemove', (e) => { this.hover = this.tileAt(e.clientX, e.clientY); });
-    canvas.addEventListener('mouseleave', () => { this.hover = null; });
+    canvas.addEventListener('mousemove', (e) => {
+      this.hover = this.tileAt(e.clientX, e.clientY);
+      this.onHover(this.hover, e.clientX, e.clientY);
+    });
+    canvas.addEventListener('mouseleave', () => { this.hover = null; this.onHover(null, 0, 0); });
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
       const c = this.toCanvas(e.clientX, e.clientY);
@@ -278,7 +283,7 @@ export class Board {
   private drawWall(g: Game, x: number, y: number, from = 0) {
     const th = THEMES[g.theme], v = hash(x, y);
     const culled = { e: this.solid(g, x + 1, y), w: this.solid(g, x - 1, y), s: this.solid(g, x, y + 1) };
-    this.box({ x0: x, y0: y + from, x1: x + 1, y1: y + 1, h: WALL, top: th.top, side: th.mortar, front: wallFace(g.theme, v), culled });
+    this.box({ x0: x, y0: y + from, x1: x + 1, y1: y + 1, h: WALL, top: shade(th.top, ((v >> 4) % 5 - 2) * 0.025), side: th.mortar, front: wallFace(g.theme, v), culled });
     if (!culled.s && v % 7 === 0) {
       const f = this.p(x + 0.5, y + 1, WALL * 0.62), s = f.s * 0.5;
       if (this.angle < 85) this.ctx.drawImage(objects.lanterne(Math.floor(this.time / 260) + x), f.x - s / 2, f.y - s / 2, s, s);
