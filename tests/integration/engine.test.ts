@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { CAMPAIGNS } from '../../src/game/campaigns';
+import { BUILTIN as CAMPAIGNS } from '../../src/campaigns';
 import {
-  CHAPTERS, GM_COST, HAND_MAX, HAND_START, HEROES, MONSTERS, TINTE_MAX, TINTE_RUNDE, TINTE_START, type GmEffect, type HeroId,
-} from '../../src/game/data';
-import * as E from '../../src/game/engine';
+  GM_COST, HAND_MAX, HAND_START, HEROES, MONSTERS, TINTE_MAX, TINTE_RUNDE, TINTE_START, type GmEffect, type HeroId,
+} from '../../src/content';
+import * as E from '../support/engine';
+import { CHAPTERS } from '../../src/campaigns/legacy/hafen';
 
 const ALL: HeroId[] = ['frauke', 'joern', 'maren', 'hinnerk'];
 const play = (ids: HeroId[], chapter = 0, seed = 1) => {

@@ -1,10 +1,11 @@
-import type { Fx, Game, Pos } from '../game/engine';
-import { activeHero, chapterOf, hkey, isActive, mkey } from '../game/engine';
-import { HEROES, MONSTERS, type HeroId, type MonsterId } from '../game/data';
+import { HEROES, MONSTERS, type HeroId, type MonsterId } from '../../content';
+import { activeHero, chapterOf, hkey, isActive, mkey, type Fx, type Game, type Pos } from '../../core';
 import {
   SPRITE, THEMES, floorTile, heroDown, heroSprite, monsterSprite, moodOf, objects, piet, shade, wallFace,
-} from './sprites';
-import { ZOOM_MAX, ZOOM_MIN, applyZoom, makeView, panLimit, project, unproject, type View } from './projection';
+} from '../sprites';
+import { ZOOM_MAX, ZOOM_MIN, applyZoom, makeView, panLimit, project, unproject, type View } from '../projection';
+import { ease, hull, type Pt } from './geometry';
+import { pietPosition } from './piet';
 
 export interface Mark extends Pos { kind: 'walk' | 'use' | 'foe'; act: string; steps?: number; tides?: number }
 
@@ -31,11 +32,6 @@ interface Shot {
   at?: { x: number; y: number; size: number };
 }
 
-/** Piets Tageslauf in Millisekunden: sitzen, abheben, kreisen, landen. */
-const PIET_CYCLE = 9000;
-const PIET_SIT = 2600;
-const PIET_GLIDE = 700;
-const ease = (k: number) => k * k * (3 - 2 * k);
 
 const SHOT_COLOR: Record<string, string> = {
   frauke: '#dfe9ee', maren: '#fbfbf5', netz: '#f5ebcd', obermeister: '#b5302a', oberarchivar: '#b5302a', schmuggler: '#3f7a3a', kalle: '#7a3a14', fiete: '#2b3a5a', punktepruefer: '#b5302a', proehl: '#9fd8e8', juni: '#ffb545', licht: '#ffe27a',
@@ -49,24 +45,6 @@ const DOOR = 0.78;
 interface Box {
   x0: number; y0: number; x1: number; y1: number; h: number;
   top: string; side: string; front: HTMLCanvasElement | null; culled?: { e: boolean; w: boolean; s: boolean };
-}
-
-type Pt = { x: number; y: number };
-
-/** Konvexe Hülle (monotone Kette): der Bildschirmumriss eines Quaders. */
-function hull(pts: Pt[]) {
-  type P = Pt;
-  const p = [...pts].sort((a, b) => a.x - b.x || a.y - b.y);
-  const cross = (o: P, a: P, b: P) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
-  const half = (list: P[]) => {
-    const out: P[] = [];
-    for (const q of list) {
-      while (out.length >= 2 && cross(out[out.length - 2], out[out.length - 1], q) <= 0) out.pop();
-      out.push(q);
-    }
-    return out.slice(0, -1);
-  };
-  return [...half(p), ...half([...p].reverse())];
 }
 
 const hash = (x: number, y: number) => ((x * 73856093) ^ (y * 19349663)) >>> 0;
@@ -583,27 +561,8 @@ export class Board {
 
   /** Wo Piet gerade ist: Er kreist um den Kopf der Nordhexe und gleitet ab und zu auf ihre Schulter. */
   private pietAt(v: Vis, pos: Pos) {
-    const f = this.p(pos.x + 0.5, pos.y + 0.7), size = f.s * 0.55;
-    const t = this.time + v.x * 997, ph = t % PIET_CYCLE, a = t / 520;
-    const orbit = { x: f.x + Math.cos(a) * f.s * 0.42, y: f.y - f.s * (1.25 + Math.sin(a) * 0.1) };
-    const px = (f.s * 1.2) / SPRITE;
-    const seat = {
-      x: f.x + f.s * 0.3 * (v.side ?? (v.flip ? -1 : 1)),
-      y: f.y - f.s * 0.78 - Math.cos((v.side ?? 1) * Math.PI / 2) * f.s * 0.12 + (v.bob ?? 0) * px,
-    };
-    let w = 0, landing = false;
-    if (ph < PIET_SIT) w = 1;
-    else if (ph < PIET_SIT + PIET_GLIDE) w = 1 - ease((ph - PIET_SIT) / PIET_GLIDE);
-    else if (ph > PIET_CYCLE - PIET_GLIDE) { w = ease((ph - PIET_CYCLE + PIET_GLIDE) / PIET_GLIDE); landing = true; }
-    const hop = Math.sin(w * Math.PI) * f.s * 0.18;
-    let flip = Math.sin(a) > 0;
-    if (w === 1) flip = v.flip;
-    else if (w > 0) flip = landing ? seat.x < orbit.x : orbit.x < seat.x;
-    return {
-      x: orbit.x + (seat.x - orbit.x) * w,
-      y: orbit.y + (seat.y - orbit.y) * w - hop,
-      size, flip, frame: w === 1 ? 0 : Math.floor(t / 120),
-    };
+    const f = this.p(pos.x + 0.5, pos.y + 0.7);
+    return pietPosition({ x: f.x, y: f.y, s: f.s }, this.time + v.x * 997, { flip: v.flip, side: v.side, bob: v.bob });
   }
 
   /** step: Schulterwechsel fortschreiben; beim zweiten Zeichnen im selben Bild nicht. */
