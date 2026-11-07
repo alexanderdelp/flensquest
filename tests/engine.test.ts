@@ -165,6 +165,20 @@ describe('Regeln', () => {
     expect(b.hp).toBe(4);
   });
 
+  it('FlensLeuchtfeuer blendet Gegner für eine Runde', () => {
+    const g = play(['juni', 'joern']);
+    const h = E.activeHero(g), m = g.monsters[0];
+    h.x = m.x - 1; h.y = m.y;
+    E.reveal(g);
+    expect(E.dispatch(g, { type: 'special' })).toBe(true);
+    expect(m.stuck).toBe(true);
+    expect(h.charges).toBe(1);
+    E.endTurn(g); E.endTurn(g);
+    for (const _ of E.gmTurn(g)) void _;
+    expect(m.stuck).toBe(false);
+    expect(m.blind).toBe(false);
+  });
+
   it('Laden: einmalige Ausrüstung nur einmal, Werte steigen', () => {
     const c = E.newCampaign(['joern']);
     c.oere = 200;

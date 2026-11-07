@@ -61,10 +61,11 @@ function pick() {
   const ids = Object.keys(HEROES) as HeroId[];
   html(`<main class="screen">
     <h2>Wer geht mit in den Keller?</h2>
-    <p class="lead">Wähle 1 bis 4 Figuren. Allein bekommst du eine Tide und 4 Lebenspunkte extra.</p>
+    <p class="lead">Wähle 1 bis 4 von 5 Figuren. Allein bekommst du eine Tide und 4 Lebenspunkte extra.</p>
     <div class="cards">${ids.map((id) => {
       const d = HEROES[id];
-      return `<button class="card ${picked.includes(id) ? 'on' : ''}" data-hero="${id}" aria-pressed="${picked.includes(id)}">
+      const full = picked.length >= 4 && !picked.includes(id);
+      return `<button class="card ${picked.includes(id) ? 'on' : ''}" data-hero="${id}" aria-pressed="${picked.includes(id)}" ${full ? 'disabled' : ''}>
         <img class="face" alt="" src="${toDataUrl(heroSprite(id, [], 0))}">
         <b>${d.name}</b><small>${d.title}</small>
         <span class="stats">❤️ ${d.hp} · ⚔️ ${d.att} · 🛡️ ${d.arm} · 👣 ${d.spd}</span>
@@ -276,13 +277,12 @@ function panel() {
 function heroTurn(g: Game) {
   const h = E.activeHero(g);
   const open = g.steps ? ` · ${g.steps} aus der laufenden Tide` : '';
-  const legend = Array.from({ length: Math.min(g.tiden, 4) }, (_, i) => {
-    const n = i + 1 + (g.steps ? 1 : 0);
-    return `<i class="tide t${Math.min(n, 4)}"></i>${n}`;
-  }).join(' ');
+  const legend = Array.from({ length: Math.min(g.tiden + (g.steps ? 1 : 0), 4) }, (_, i) => (
+    `<i class="tide t${i + 1}"></i>${i + 1}`
+  )).join(' ');
   return `<p class="turn"><b>${HEROES[h.id].name}</b> · ${'🌊'.repeat(g.tiden)}</p>
     <p class="reach">👣 <b>${E.stepsLeft(g)}</b> Schritte übrig · ${h.spd} je Tide${open}</p>
-    ${g.tiden ? `<p class="reach legend">Punkte zeigen die Tide: ${legend}</p>` : ''}`;
+    ${g.tiden || g.steps ? `<p class="reach legend">Punkte zeigen die Tide: ${legend}</p>` : ''}`;
 }
 
 function heroButtons(g: Game, playing: boolean) {

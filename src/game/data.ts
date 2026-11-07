@@ -1,4 +1,4 @@
-export type HeroId = 'frauke' | 'joern' | 'maren' | 'hinnerk';
+export type HeroId = 'frauke' | 'joern' | 'maren' | 'hinnerk' | 'juni';
 export type MonsterId = 'moewe' | 'knoellchen' | 'rumgeist' | 'qualle' | 'klabauter' | 'obermeister';
 
 export interface HeroDef {
@@ -38,6 +38,11 @@ export const HEROES: Record<HeroId, HeroDef> = {
     id: 'hinnerk', name: 'Hinnerk', title: 'Rumkontorist', icon: '🥃', color: '#a9791f',
     hp: 10, att: 2, arm: 1, spd: 4, dmg: 2, range: 1, weapon: 'Kontorstock',
     special: 'Lütt un Lütt', specialText: 'Heilt den am schwersten getroffenen Nachbarn (oder dich) um 4, holt auch Gestürzte zurück.',
+  },
+  juni: {
+    id: 'juni', name: 'Juni', title: 'Leuchtturmwärterin', icon: '🏮', color: '#2f6fd6',
+    hp: 9, att: 2, arm: 1, spd: 5, dmg: 2, range: 3, weapon: 'Leuchtpistole',
+    special: 'FlensLeuchtfeuer', specialText: 'Blendet alle sichtbaren Gegner bis 3 Felder weit: Sie setzen eine Runde aus.',
   },
 };
 

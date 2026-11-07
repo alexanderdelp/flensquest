@@ -14,7 +14,7 @@ export interface Hero extends CampaignHero, Pos {
   hp: number; maxHp: number; charges: number; down: boolean;
 }
 export interface Monster extends Pos {
-  uid: number; kind: MonsterId; hp: number; maxHp: number; stuck: boolean;
+  uid: number; kind: MonsterId; hp: number; maxHp: number; stuck: boolean; blind?: boolean;
 }
 /** Was passiert ist, damit die Oberfläche es zeigen kann. Die Regeln hängen nicht davon ab. */
 export type Fx =
@@ -416,6 +416,15 @@ export function special(g: Game, target?: Monster): boolean {
       damageMonster(g, m, 1);
     });
   }
+  if (h.id === 'juni') {
+    const hit = g.monsters.filter((m) => isActive(g, m) && dist(h, m) <= 3 && lineOfSight(g, h, m));
+    if (!hit.length) return false;
+    log(g, `FlensLeuchtfeuer blendet ${hit.length} Gegner.`);
+    hit.forEach((m) => {
+      m.stuck = true; m.blind = true;
+      g.fx.push({ t: 'shot', who: hkey(h), target: mkey(m), shot: 'licht' });
+    });
+  }
   if (h.id === 'frauke' && target) {
     log(g, `FlensNetz fesselt ${MONSTERS[target.kind].name}.`);
     target.stuck = true;
@@ -464,7 +473,7 @@ function pathToward(g: Game, m: Monster, targets: Hero[], range: number): Pos[] 
 
 function monsterAct(g: Game, m: Monster) {
   const d = MONSTERS[m.kind];
-  if (m.stuck) { m.stuck = false; log(g, `${d.name} zappelt im Netz.`); return; }
+  if (m.stuck) { m.stuck = false; m.blind = false; log(g, `${d.name} setzt aus.`); return; }
   const path = pathToward(g, m, living(g), d.range);
   if (path === null) return;
   const walk = path.slice(0, d.spd);
@@ -556,9 +565,9 @@ function gmStart(g: Game) {
   g.gmActed = []; g.gmMoved = []; g.gmCardPlayed = false;
   g.gmCards = [drawCard(g), drawCard(g)];
   g.monsters.filter((m) => m.stuck && isActive(g, m)).forEach((m) => {
-    m.stuck = false;
+    m.stuck = false; m.blind = false;
     g.gmActed.push(m.uid);
-    log(g, `${MONSTERS[m.kind].name} zappelt im Netz.`);
+    log(g, `${MONSTERS[m.kind].name} setzt aus.`);
   });
 }
 
