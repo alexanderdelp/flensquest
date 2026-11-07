@@ -30,6 +30,7 @@ Ausgangspunkt war der Wunsch nach einem Spiel im Stil klassischer Dungeon-Bretts
 - **Reichweite:** Heller Rand um das Gebiet und ein Punkt je Feld, nie nur eine Tönung des Bodens.
 - **Laune:** Figuren zeigen ihren Zustand im Sprite: finstere Miene nach Schaden, ab halben Lebenspunkten Verband, blaues Auge und Gewitterwolke.
 - **Meldungen:** Was der Spielleiter tut, steht auf dem Brett (Zeile, Banner, Rundenrückblick). Niemand soll dafür den Verlauf lesen müssen.
+- **Ton:** `src/ui/audio.ts` erzeugt Geräusche und Ambiente per Web Audio, ohne Audiodateien. Sprache über `speechSynthesis`; neue Texte müssen vorlesbar sein (`src/ui/speech-text.ts`). Alles einzeln schaltbar.
 - **Zielgeräte:** PC und iPad haben Vorrang. Das iPhone soll spielbar sein, darf aber keine Designentscheidung zulasten der anderen bestimmen.
 - **Betrieb:** Statische Seite ohne Server und ohne externe Anfragen zur Laufzeit. Für mehrere Geräte siehe `docs/mehrgeraete.md`. Der Spielstand liegt nur in `localStorage`, Schlüssel `flensquest:v1`.
 - **Veröffentlichung:** Jeder Push auf `main` testet, baut und veröffentlicht auf https://alexanderdelp.github.io/flensquest/ (`.github/workflows/deploy.yml`). `base` bleibt relativ.

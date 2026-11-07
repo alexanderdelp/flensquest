@@ -102,6 +102,12 @@ small { font-weight: 400; }
 .pc.on { background: #fbeec8; }
 .pc.down { opacity: .5; }
 .dot { width: 36px; height: 36px; flex: none; image-rendering: pixelated; vertical-align: middle; }
+.audiobar {
+  position: fixed; right: 14px; bottom: 14px; z-index: 5; display: flex; gap: 6px; padding: 4px;
+  border-radius: 12px; background: rgba(11, 39, 51, .85);
+}
+.audiobar button { width: 46px; height: 44px; padding: 0; font-size: 1.1rem; background: var(--moewe); }
+.audiobar button.off { opacity: .45; background: #b9c4c8; text-decoration: line-through; }
 .turn { margin: 0; }
 .reach { margin: 0; font-size: .9rem; }
 .reach.legend { font-size: .8rem; }
@@ -127,4 +133,9 @@ small { font-weight: 400; }
   .table { grid-template-columns: 1fr; }
   .boardwrap { height: 62vw; }
   .log { max-height: 180px; }
+}
+
+@media (max-height: 460px) {
+  .audiobar { top: 2px; bottom: auto; right: 80px; padding: 0; background: none; }
+  .audiobar button { width: 34px; height: 30px; min-height: 30px; font-size: .85rem; }
 }
