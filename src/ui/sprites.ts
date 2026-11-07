@@ -239,10 +239,6 @@ export const objects = {
     p(2, 9, 28, 2, '#2a2a30'); p(2, 21, 28, 2, '#2a2a30');
     p(23, 14, 3, 4, '#e0ac3c');
   }),
-  doorOpen: () => sprite('o:doorOpen', (p) => {
-    p(0, 0, 32, 3, '#4a2d16'); p(0, 29, 32, 3, '#4a2d16');
-    p(0, 3, 3, 26, '#7c4d26'); p(29, 3, 3, 26, '#7c4d26');
-  }),
   exit: () => sprite('o:exit', (p) => {
     p(3, 4, 26, 25, '#2a1c12');
     p(5, 6, 22, 5, '#b09a78'); p(7, 11, 18, 4, '#937d5e'); p(9, 15, 14, 4, '#755f45');
@@ -321,14 +317,6 @@ export function floorTile(t: number, variant: number) {
     }
     if (v === 1) p(5, 6, 3, 2, th.line);
     if (v === 2) p(22, 24, 4, 2, th.line);
-  });
-}
-
-export function wallTop(t: number) {
-  const th = THEMES[t];
-  return sprite(`t:wt:${t}`, (p) => {
-    p(0, 0, 32, 32, th.top); p(0, 0, 32, 1, 'rgba(255,255,255,.18)');
-    p(4, 8, 6, 1, 'rgba(0,0,0,.12)'); p(18, 20, 8, 1, 'rgba(0,0,0,.12)');
   });
 }
 

@@ -1,10 +1,11 @@
 import { CHAPTERS } from '../game/data';
 import type { Fx, Game, Pos } from '../game/engine';
-import { activeHero, chestAt, hkey, isActive, mkey } from '../game/engine';
+import { activeHero, hkey, isActive, mkey } from '../game/engine';
 import { HEROES, MONSTERS, type HeroId, type MonsterId } from '../game/data';
 import {
-  SPRITE, THEMES, floorTile, heroDown, heroSprite, monsterSprite, moodOf, objects, wallFace, wallTop,
+  SPRITE, THEMES, floorTile, heroDown, heroSprite, monsterSprite, moodOf, objects, wallFace,
 } from './sprites';
+import { makeView, project, unproject, type View } from './projection';
 
 export interface Mark extends Pos { kind: 'walk' | 'use' | 'foe'; act: string }
 
@@ -22,6 +23,14 @@ const SHOT_COLOR: Record<string, string> = {
   frauke: '#dfe9ee', maren: '#fbfbf5', netz: '#f5ebcd', stempel: '#b5302a',
 };
 
+const WALL = 0.62;
+const DOOR = 0.78;
+
+interface Box {
+  x0: number; y0: number; x1: number; y1: number; h: number;
+  top: string; side: string; front: HTMLCanvasElement | null; culled?: { e: boolean; w: boolean; s: boolean };
+}
+
 const hash = (x: number, y: number) => ((x * 73856093) ^ (y * 19349663)) >>> 0;
 
 /** Zeichnet das Spielbrett auf ein Canvas und übersetzt Klicks in Felder. */
@@ -30,13 +39,11 @@ export class Board {
   marks: Mark[] = [];
   hover: Pos | null = null;
   private ctx: CanvasRenderingContext2D;
-  private cell = 32;
-  private row = 32;
-  private face = 0;
+  private view: View = makeView(24, 14, 55, 100, 100, WALL);
+  private floor = document.createElement('canvas');
+  private floorKey = '';
   /** Blickwinkel in Grad: 90 = von oben. */
-  angle = 60;
-  private ox = 0;
-  private oy = 0;
+  angle = 55;
   private raf = 0;
   private time = 0;
   private vis = new Map<string, Vis>();
@@ -75,14 +82,14 @@ export class Board {
   }
 
   private layout(g: Game) {
-    const cw = this.canvas.width, ch = this.canvas.height;
-    const rad = (this.angle * Math.PI) / 180, sin = Math.sin(rad), cos = Math.cos(rad);
-    this.cell = Math.min(cw / g.w, ch / (g.h * sin));
-    this.row = this.cell * sin;
-    // Wände bleiben im eigenen Feld: so verdeckt keine Wand das Feld dahinter.
-    this.face = Math.min(this.row * 0.75, Math.max(this.row * 0.18, this.cell * 0.8 * cos));
-    this.ox = (cw - this.cell * g.w) / 2;
-    this.oy = (ch - this.row * g.h) / 2;
+    this.view = makeView(g.w, g.h, this.angle, this.canvas.width, this.canvas.height, DOOR);
+  }
+
+  private p(x: number, y: number, z = 0) { return project(this.view, x, y, z); }
+
+  private solid(g: Game, x: number, y: number) {
+    const t = g.tiles[y]?.[x] ?? '#';
+    return t === '#' || t === 'H';
   }
 
   tileAt(cx: number, cy: number): Pos | null {
@@ -92,66 +99,131 @@ export class Board {
     const r = this.canvas.getBoundingClientRect();
     const sx = ((cx - r.left) / r.width) * this.canvas.width;
     const sy = ((cy - r.top) / r.height) * this.canvas.height;
-    const x = Math.floor((sx - this.ox) / this.cell), y = Math.floor((sy - this.oy) / this.row);
+    // Aufrechte Ziele (Gegner, Türen, Truhen) lassen sich auch oben antippen.
+    const upright = this.marks.filter((m) => m.kind !== 'walk').sort((a, b2) => b2.y - a.y);
+    for (const m of upright) {
+      const f = this.p(m.x + 0.5, m.y + 0.7);
+      if (Math.abs(sx - f.x) < f.s * 0.55 && sy < f.y + f.s * 0.3 && sy > f.y - f.s * 1.15) return { x: m.x, y: m.y };
+    }
+    const q = unproject(this.view, sx, sy);
+    const x = Math.floor(q.x), y = Math.floor(q.y);
     return x >= 0 && y >= 0 && x < g.w && y < g.h ? { x, y } : null;
   }
 
-  private img(i: CanvasImageSource, x: number, y: number, w = this.cell, h = this.cell) {
-    this.ctx.drawImage(i, x, y, w, h);
+  /** Bildschirmmitte eines Felds in CSS-Pixeln, für Tests. */
+  screenOf(x: number, y: number) {
+    const f = this.p(x + 0.5, y + 0.5);
+    const r = this.canvas.getBoundingClientRect();
+    return { x: r.left + (f.x / this.canvas.width) * r.width, y: r.top + (f.y / this.canvas.height) * r.height };
   }
 
-  private px(x: number) { return this.ox + x * this.cell; }
-  private py(y: number) { return this.oy + y * this.row; }
+  private floorStrips(c: CanvasRenderingContext2D, img: CanvasImageSource, x: number, y: number) {
+    const n = 6;
+    for (let i = 0; i < n; i++) {
+      const a = this.p(x, y + i / n), e = this.p(x + 1, y + i / n), d = this.p(x, y + (i + 1) / n);
+      c.drawImage(img, 0, (i * SPRITE) / n, SPRITE, SPRITE / n, a.x, a.y, e.x - a.x + 0.6, d.y - a.y + 0.6);
+    }
+  }
 
-  private drawTile(g: Game, x: number, y: number) {
-    const t = g.chapter, c = this.cell, r = this.row, X = this.px(x), Y = this.py(y);
-    const tile = g.tiles[y][x], v = hash(x, y);
-    if (tile === '#' || tile === 'H') {
-      const southOpen = y + 1 < g.h && g.seen[y + 1][x] && g.tiles[y + 1][x] !== '#' && g.tiles[y + 1][x] !== 'H';
-      if (southOpen) {
-        const top = r - this.face;
-        this.img(wallTop(t), X, Y, c, top);
-        this.img(wallFace(t, v), X, Y + top, c, this.face);
-        if (v % 7 === 0) {
-          const h = Math.min(this.face * 1.1, c * 0.7);
-          this.img(objects.lanterne(Math.floor(this.time / 260) + x), X + (c - h) / 2, Y + top + (this.face - h) / 2, h, h);
+  private buildFloor(g: Game, key: string) {
+    const f = this.floor;
+    f.width = this.canvas.width; f.height = this.canvas.height;
+    const c = f.getContext('2d')!;
+    c.imageSmoothingEnabled = false;
+    c.fillStyle = THEMES[g.chapter].fog;
+    c.fillRect(0, 0, f.width, f.height);
+    for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
+      if (!g.seen[y][x] || this.solid(g, x, y)) continue;
+      this.floorStrips(c, floorTile(g.chapter, hash(x, y)), x, y);
+    }
+    if (g.exit && g.seen[g.exit.y][g.exit.x]) this.floorStrips(c, objects.exit(), g.exit.x, g.exit.y);
+    this.floorKey = key;
+  }
+
+  private poly(pts: { x: number; y: number }[], fill: string) {
+    const { ctx } = this;
+    ctx.fillStyle = fill; ctx.strokeStyle = fill; ctx.lineWidth = 1;
+    ctx.beginPath();
+    pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+
+  /** Quader mit sichtbaren Seiten, Vorderseite und Deckel. */
+  private box(b: Box) {
+    const { x0, y0, x1, y1, h } = b, cx = this.view.cx, cull = b.culled;
+    if (x1 < cx && !cull?.e) this.poly([this.p(x1, y0, h), this.p(x1, y1, h), this.p(x1, y1), this.p(x1, y0)], b.side);
+    if (x0 > cx && !cull?.w) this.poly([this.p(x0, y0, h), this.p(x0, y1, h), this.p(x0, y1), this.p(x0, y0)], b.side);
+    if (!cull?.s && this.p(x0, y1).y > this.p(x0, y1, h).y + 0.5) {
+      if (b.front) {
+        const n = 5;
+        for (let i = 0; i < n; i++) {
+          const a = this.p(x0, y1, h * (1 - i / n)), e = this.p(x1, y1, h * (1 - i / n)), d = this.p(x0, y1, h * (1 - (i + 1) / n));
+          this.ctx.drawImage(b.front, 0, (i * SPRITE) / n, SPRITE, SPRITE / n, a.x, a.y, e.x - a.x + 0.6, d.y - a.y + 0.6);
         }
       } else {
-        this.img(wallTop(t), X, Y, c, r);
+        this.poly([this.p(x0, y1, h), this.p(x1, y1, h), this.p(x1, y1), this.p(x0, y1)], b.side);
       }
-      return;
     }
-    this.img(floorTile(t, v), X, Y, c, r);
-    if (tile === 'D') {
-      const h = Math.max(this.face, r * 0.6);
-      this.img(wallTop(t), X, Y, c, r - h);
-      this.img(objects.door(), X, Y + r - h, c, h);
-    }
-    if (tile === 'O') this.img(objects.doorOpen(), X, Y, c, r);
+    this.poly([this.p(x0, y0, h), this.p(x1, y0, h), this.p(x1, y1, h), this.p(x0, y1, h)], b.top);
   }
 
-  private shadeEdges(g: Game, x: number, y: number) {
-    if (g.tiles[y][x] === '#' || g.tiles[y][x] === 'H') return;
-    if (y > 0 && (g.tiles[y - 1][x] === '#' || g.tiles[y - 1][x] === 'H')) {
-      this.ctx.fillStyle = 'rgba(0,0,0,.22)';
-      this.ctx.fillRect(this.px(x), this.py(y), this.cell, this.row * 0.16);
+  private drawWall(g: Game, x: number, y: number) {
+    const th = THEMES[g.chapter], v = hash(x, y);
+    const culled = { e: this.solid(g, x + 1, y), w: this.solid(g, x - 1, y), s: this.solid(g, x, y + 1) };
+    this.box({ x0: x, y0: y, x1: x + 1, y1: y + 1, h: WALL, top: th.top, side: th.mortar, front: wallFace(g.chapter, v), culled });
+    if (!culled.s && v % 7 === 0) {
+      const f = this.p(x + 0.5, y + 1, WALL * 0.62), s = f.s * 0.5;
+      if (this.angle < 85) this.ctx.drawImage(objects.lanterne(Math.floor(this.time / 260) + x), f.x - s / 2, f.y - s / 2, s, s);
     }
+  }
+
+  /** Türen stehen im Durchgang: quer zur Laufrichtung, offen klappt das Blatt zur Seite. */
+  private drawDoor(g: Game, x: number, y: number) {
+    const northSouth = this.solid(g, x - 1, y) && this.solid(g, x + 1, y);
+    const open = g.tiles[y][x] === 'O';
+    const leaf = { h: DOOR, top: '#5c3a1c', side: '#7c4d26' };
+    if (!open) {
+      if (northSouth) this.box({ ...leaf, x0: x + 0.02, y0: y + 0.42, x1: x + 0.98, y1: y + 0.58, front: objects.door() });
+      else this.box({ ...leaf, x0: x + 0.42, y0: y + 0.02, x1: x + 0.58, y1: y + 0.98, front: null });
+    } else if (northSouth) {
+      this.box({ ...leaf, x0: x + 0.03, y0: y + 0.08, x1: x + 0.13, y1: y + 0.92, front: null });
+    } else {
+      this.box({ ...leaf, x0: x + 0.08, y0: y + 0.03, x1: x + 0.92, y1: y + 0.13, front: null });
+    }
+  }
+
+  private floorQuad(x: number, y: number, inset: number, fill: string, stroke?: string) {
+    const pts = [this.p(x + inset, y + inset), this.p(x + 1 - inset, y + inset), this.p(x + 1 - inset, y + 1 - inset), this.p(x + inset, y + 1 - inset)];
+    const { ctx } = this;
+    ctx.beginPath();
+    pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+    ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = Math.max(2, pts[0].y * 0 + 2.5); ctx.stroke(); }
   }
 
   private drawMarks() {
-    const { ctx, cell: c } = this;
     const pulse = 0.5 + 0.5 * Math.sin(this.time / 300);
     for (const m of this.marks) {
       const col = MARK_COLOR[m.kind];
       const on = this.hover?.x === m.x && this.hover?.y === m.y;
-      const X = this.px(m.x) + c * 0.05, Y = this.py(m.y) + this.row * 0.05, s = c * 0.9, h = this.row * 0.9;
-      ctx.fillStyle = `${col}${on ? 0.55 : m.kind === 'walk' ? 0.2 : 0.12})`;
-      ctx.fillRect(X, Y, s, h);
-      if (m.kind !== 'walk') {
-        ctx.strokeStyle = `${col}${0.6 + pulse * 0.4})`;
-        ctx.lineWidth = Math.max(2, c * 0.07);
-        ctx.strokeRect(X, Y, s, h);
-      }
+      const fill = `${col}${on ? 0.55 : m.kind === 'walk' ? 0.2 : 0.14})`;
+      this.floorQuad(m.x, m.y, 0.05, fill, m.kind === 'walk' ? undefined : `${col}${0.6 + pulse * 0.4})`);
+    }
+  }
+
+  /** Hüpfender Pfeil über Zielen, damit sie auch hinter Wänden auffallen. */
+  private drawArrows() {
+    const { ctx } = this;
+    const bob = Math.sin(this.time / 220) * 0.08;
+    for (const m of this.marks) {
+      if (m.kind === 'walk') continue;
+      const f = this.p(m.x + 0.5, m.y + 0.7, 1.15 + bob), s = f.s * 0.16;
+      ctx.fillStyle = m.kind === 'foe' ? '#ff5a48' : '#ffd76a';
+      ctx.strokeStyle = 'rgba(10,20,28,.85)'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(f.x - s, f.y - s); ctx.lineTo(f.x + s, f.y - s); ctx.lineTo(f.x, f.y + s); ctx.closePath();
+      ctx.fill(); ctx.stroke();
     }
   }
 
@@ -279,94 +351,106 @@ export class Board {
   }
 
   private overlay() {
-    const { ctx, cell: c } = this;
+    const { ctx } = this;
     const now = performance.now();
     for (const s of this.shots) {
-      const X = this.px(s.x + 0.5), Y = this.py(s.y + 0.5) - c * 0.3, r = c * s.size;
+      const f = this.p(s.x + 0.5, s.y + 0.6, 0.55), r = f.s * s.size;
       ctx.fillStyle = 'rgba(0,0,0,.5)';
-      ctx.fillRect(X - r - 1, Y - r - 1, r * 2 + 2, r * 2 + 2);
+      ctx.fillRect(f.x - r - 1, f.y - r - 1, r * 2 + 2, r * 2 + 2);
       ctx.fillStyle = s.color;
-      ctx.fillRect(X - r, Y - r, r * 2, r * 2);
+      ctx.fillRect(f.x - r, f.y - r, r * 2, r * 2);
     }
     this.floats = this.floats.filter((f) => now - f.start < f.dur);
     ctx.textAlign = 'center';
     ctx.lineJoin = 'round';
     for (const f of this.floats) {
       const k = (now - f.start) / f.dur;
-      const X = this.px(f.x + 0.5), Y = this.py(f.y) - c * 0.35 - k * c * 0.7;
-      ctx.font = `bold ${Math.max(15, c * 0.48)}px 'Trebuchet MS', system-ui, sans-serif`;
+      const q = this.p(f.x + 0.5, f.y + 0.7, 1.05 + k * 0.7);
+      ctx.font = `bold ${Math.max(15, q.s * 0.5)}px 'Trebuchet MS', system-ui, sans-serif`;
       ctx.globalAlpha = k > 0.7 ? (1 - k) / 0.3 : 1;
-      ctx.lineWidth = Math.max(3, c * 0.12);
+      ctx.lineWidth = Math.max(3, q.s * 0.12);
       ctx.strokeStyle = 'rgba(10,20,28,.9)';
-      ctx.strokeText(f.text, X, Y);
+      ctx.strokeText(f.text, q.x, q.y);
       ctx.fillStyle = f.color;
-      ctx.fillText(f.text, X, Y);
+      ctx.fillText(f.text, q.x, q.y);
     }
     ctx.globalAlpha = 1;
   }
 
-  private actors(g: Game) {
+  /** Aufrechtes Bild, das mit den Füßen auf dem Feld steht. */
+  private place(i: CanvasImageSource, p: Pos, up = 0) {
+    const f = this.p(p.x + 0.5, p.y + 0.7), s = f.s * 1.2;
+    this.ctx.drawImage(i, f.x - s / 2, f.y - s * 0.95 - up * f.s, s, s);
+  }
+
+  private drawActor(g: Game, v: Vis, n: number, ghost: boolean) {
     const beat = Math.floor(this.time / 420);
-    const list: { y: number; draw: () => void }[] = [];
-    const size = this.cell * 1.15;
-    const place = (i: CanvasImageSource, p: Pos) => {
-      this.img(i, this.px(p.x) + (this.cell - size) / 2, this.py(p.y) + this.row * 0.92 - size, size, size);
-    };
-    for (const c of g.chests) {
-      if (g.seen[c.y][c.x]) list.push({ y: c.y, draw: () => place(objects.chest(), c) });
+    const pos = { x: v.x + v.dx + v.shake, y: v.y + v.dy };
+    this.ctx.globalAlpha = v.alpha * (ghost ? 0.38 : 1);
+    if (v.hero) {
+      if (v.down) this.place(heroDown(v.hero, v.gear), pos);
+      else {
+        if (!ghost && v.key === hkey(activeHero(g)) && g.status === 'play') this.ring(pos);
+        const walk = 2 + (Math.floor(this.time / 110) % 2);
+        const mood = moodOf(v.hp, v.maxHp);
+        this.place(heroSprite(v.hero, v.gear, v.walking ? walk : (beat + n) % 2, v.flip, mood), pos);
+        if (mood === 2) this.place(objects.wolke(beat + n), pos, 0.85);
+      }
+    } else if (v.monster) {
+      const frame = v.walking ? Math.floor(this.time / 110) : beat + n;
+      this.place(monsterSprite(v.monster, frame, v.flip), pos);
+      if (v.stuck) this.place(objects.netz(), pos);
+      if (!ghost) this.bar(pos, v.hp / v.maxHp);
     }
-    if (g.exit && g.seen[g.exit.y][g.exit.x]) {
-      const e = g.exit;
-      list.push({ y: e.y - 0.5, draw: () => this.img(objects.exit(), this.px(e.x), this.py(e.y), this.cell, this.row) });
+    this.ctx.globalAlpha = 1;
+  }
+
+  /** Von hinten nach vorn zeichnen, damit Wände wirklich davorstehen können. */
+  private scene(g: Game) {
+    const list: { key: number; draw: () => void }[] = [];
+    const cx = this.view.cx;
+    for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
+      if (!g.seen[y][x]) continue;
+      const t = g.tiles[y][x];
+      const toward = 0.01 * (1 - Math.abs(x + 0.5 - cx) / g.w);
+      if (t === '#' || t === 'H') list.push({ key: y + 1 + toward, draw: () => this.drawWall(g, x, y) });
+      if (t === 'D' || t === 'O') list.push({ key: y + 0.6, draw: () => this.drawDoor(g, x, y) });
+    }
+    for (const c of g.chests) {
+      if (g.seen[c.y][c.x]) list.push({ key: c.y + 0.7, draw: () => this.place(objects.chest(), c) });
     }
     if (g.goal && !g.goalTaken && g.seen[g.goal.y][g.goal.x]) {
       const s = this.goalSprite(g), p = g.goal;
-      if (s) list.push({ y: p.y, draw: () => place(s, p) });
+      if (s) list.push({ key: p.y + 0.7, draw: () => this.place(s, p) });
     }
-    const active = hkey(activeHero(g));
-    let i = 0;
-    for (const v of this.vis.values()) {
-      const n = i++;
-      const pos = { x: v.x + v.dx + v.shake, y: v.y + v.dy };
-      list.push({ y: v.y, draw: () => {
-        this.ctx.globalAlpha = v.alpha;
-        if (v.hero) {
-          if (v.down) place(heroDown(v.hero, v.gear), pos);
-          else {
-            if (v.key === active && g.status === 'play') this.ring(pos);
-            const walk = 2 + (Math.floor(this.time / 110) % 2);
-            const mood = moodOf(v.hp, v.maxHp);
-            place(heroSprite(v.hero, v.gear, v.walking ? walk : (beat + n) % 2, v.flip, mood), pos);
-            if (mood === 2) place(objects.wolke(beat + n), { x: pos.x, y: pos.y - 0.85 });
-          }
-        } else if (v.monster) {
-          const frame = v.walking ? Math.floor(this.time / 110) : beat + n;
-          place(monsterSprite(v.monster, frame, v.flip), pos);
-          if (v.stuck) place(objects.netz(), pos);
-          this.bar(pos.x, pos.y, v.hp / v.maxHp);
-        }
-        this.ctx.globalAlpha = 1;
-      } });
-    }
-    list.sort((a, b) => a.y - b.y).forEach((a) => a.draw());
+    const actors = [...this.vis.values()];
+    actors.forEach((v, n) => list.push({ key: v.y + 0.75, draw: () => this.drawActor(g, v, n, false) }));
+    list.sort((a, c) => a.key - c.key).forEach((i) => i.draw());
+    // Figuren hinter Wänden bleiben schwach sichtbar.
+    actors.forEach((v, n) => {
+      const south = g.tiles[Math.round(v.y) + 1]?.[Math.round(v.x)];
+      if (south === '#' || south === 'H' || south === 'D') this.drawActor(g, v, n, true);
+    });
   }
 
   private ring(p: Pos) {
-    const { ctx, cell: c } = this;
+    const { ctx } = this;
+    const f = this.p(p.x + 0.5, p.y + 0.7);
     ctx.strokeStyle = '#ffd76a';
-    ctx.lineWidth = Math.max(2, c * 0.06);
+    ctx.lineWidth = Math.max(2, f.s * 0.07);
     ctx.beginPath();
-    ctx.ellipse(this.px(p.x) + c / 2, this.py(p.y) + this.row * 0.82, c * 0.42, this.row * 0.16, 0, 0, Math.PI * 2);
+    ctx.ellipse(f.x, f.y, f.s * 0.42, f.s * 0.42 * Math.max(0.35, this.view.sin), 0, 0, Math.PI * 2);
     ctx.stroke();
   }
 
-  private bar(x: number, y: number, f: number) {
-    const { ctx, cell: c } = this;
-    const X = this.px(x) + c * 0.15, Y = this.py(y) + this.row * 0.94, w = c * 0.7, h = Math.max(3, c * 0.08);
+  private bar(p: Pos, part: number) {
+    const { ctx } = this;
+    const f = this.p(p.x + 0.5, p.y + 0.7);
+    const X = f.x - f.s * 0.35, Y = f.y + f.s * 0.08, w = f.s * 0.7, h = Math.max(3, f.s * 0.09);
     ctx.fillStyle = 'rgba(0,0,0,.6)';
     ctx.fillRect(X, Y, w, h);
     ctx.fillStyle = '#e8554a';
-    ctx.fillRect(X, Y, w * Math.max(0, f), h);
+    ctx.fillRect(X, Y, w * Math.max(0, part), h);
   }
 
   draw() {
@@ -374,22 +458,15 @@ export class Board {
     if (!g) return;
     this.layout(g);
     ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = THEMES[g.chapter].fog;
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
-      if (!g.seen[y][x]) continue;
-      if (chestAt(g, x, y) || g.tiles[y][x] !== undefined) this.drawTile(g, x, y);
-      this.shadeEdges(g, x, y);
-    }
+    const key = [
+      this.canvas.width, this.canvas.height, this.angle, g.chapter,
+      g.seen.map((r) => r.map(Number).join('')).join(), g.tiles.map((r) => r.join('')).join(),
+    ].join('|');
+    if (key !== this.floorKey) this.buildFloor(g, key);
+    ctx.drawImage(this.floor, 0, 0);
     this.drawMarks();
-    this.actors(g);
+    this.scene(g);
+    this.drawArrows();
     this.overlay();
   }
 }
-
-export const nameOf = (g: Game, p: Pos) => {
-  const m = g.monsters.find((o) => o.x === p.x && o.y === p.y);
-  return m && isActive(g, m) ? `${MONSTERS[m.kind].name} ${m.hp}/${m.maxHp}` : '';
-};
-
-export const spriteSize = SPRITE;

@@ -300,8 +300,8 @@ function setupTilt(b: Board) {
   const input = app.querySelector<HTMLInputElement>('[data-tilt]')!;
   const label = app.querySelector<HTMLElement>('[data-angle]')!;
   const apply = (v: number) => { b.angle = v; input.value = String(v); label.textContent = `${v}°`; };
-  let stored = 60;
-  try { stored = Number(localStorage.getItem(ANGLE)) || 60; } catch { /* Speichern ist optional */ }
+  let stored = 55;
+  try { stored = Number(localStorage.getItem(ANGLE)) || 55; } catch { /* Speichern ist optional */ }
   apply(Math.min(90, Math.max(35, stored)));
   input.addEventListener('input', () => {
     apply(Number(input.value));
@@ -328,6 +328,7 @@ function board() {
       </div>
     </main>`);
     view = new Board(app.querySelector<HTMLCanvasElement>('.board')!, tapTile);
+    if (import.meta.env.DEV) (window as unknown as { board: Board }).board = view;
     setupTilt(view);
   }
   const fresh = view!.game !== g;
