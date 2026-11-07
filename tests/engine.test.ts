@@ -307,6 +307,20 @@ describe('Spielleiter als Mensch', () => {
   });
 });
 
+describe('Kampagnen', () => {
+  it('Spielstände ohne Kampagne gehören zur ersten', () => {
+    const alt = { heroes: E.newCampaign(['joern']).heroes, oere: 20, chapter: 1 };
+    const g = E.startChapter(alt, 1);
+    expect(g.campaign).toBe('hafen');
+    expect(E.chapterOf(g).title).toBe(CHAPTERS[1].title);
+  });
+
+  it('die Kampagne bleibt über Kapitel erhalten', () => {
+    const c = E.newCampaign(['joern'], false, 'hafen');
+    expect(E.finishChapter(c, E.startChapter(c, 1)).campaign).toBe('hafen');
+  });
+});
+
 describe('Balance (Bot)', () => {
   it('jedes Kapitel ist für 1 bis 4 Helden gewinnbar', () => {
     const lines: string[] = [];
