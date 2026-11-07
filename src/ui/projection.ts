@@ -34,3 +34,20 @@ export function makeView(w: number, h: number, angle: number, cw: number, ch: nu
   v.oy = ch / 2 - (v.f * (y0 + y1)) / 2;
   return v;
 }
+
+export const ZOOM_MIN = 1;
+export const ZOOM_MAX = 3;
+
+/** Größte erlaubte Verschiebung, damit das Brett im Bild bleibt. */
+export const panLimit = (zoom: number, size: number) => ((zoom - 1) * size) / 2;
+
+/** Vergrößert um die Bildmitte und verschiebt danach; bei Zoom 1 bleibt alles wie vorher. */
+export function applyZoom(v: View, zoom: number, panX: number, panY: number, cw: number, ch: number): View {
+  const cx = cw / 2, cy = ch / 2;
+  return {
+    ...v,
+    f: v.f * zoom,
+    ox: cx + (v.ox - cx) * zoom + panX,
+    oy: cy + (v.oy - cy) * zoom + panY,
+  };
+}

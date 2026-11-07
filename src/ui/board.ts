@@ -4,7 +4,7 @@ import { HEROES, MONSTERS, type HeroId, type MonsterId } from '../game/data';
 import {
   SPRITE, THEMES, floorTile, heroDown, heroSprite, monsterSprite, moodOf, objects, piet, wallFace,
 } from './sprites';
-import { makeView, project, unproject, type View } from './projection';
+import { ZOOM_MAX, ZOOM_MIN, applyZoom, makeView, panLimit, project, unproject, type View } from './projection';
 
 export interface Mark extends Pos { kind: 'walk' | 'use' | 'foe'; act: string; steps?: number; tides?: number }
 
@@ -48,6 +48,15 @@ export class Board {
   private floorKey = '';
   /** Blickwinkel in Grad: 90 = von oben. */
   angle = 55;
+  /** Vergrößerung und Verschiebung in Canvas-Pixeln. */
+  zoom = 1;
+  private panX = 0;
+  private panY = 0;
+  private pointers = new Map<number, { x: number; y: number }>();
+  private dragDist = 0;
+  private swallowClick = false;
+  /** Meldet Änderungen am Zoom, etwa für die Anzeige der Knöpfe. */
+  onZoom: () => void = () => undefined;
   private raf = 0;
   private time = 0;
   private vis = new Map<string, Vis>();
@@ -61,11 +70,47 @@ export class Board {
   constructor(readonly canvas: HTMLCanvasElement, private onTile: (p: Pos) => void) {
     this.ctx = canvas.getContext('2d')!;
     canvas.addEventListener('click', (e) => {
+      if (this.swallowClick) { this.swallowClick = false; return; }
       const p = this.tileAt(e.clientX, e.clientY);
       if (p) this.onTile(p);
     });
     canvas.addEventListener('mousemove', (e) => { this.hover = this.tileAt(e.clientX, e.clientY); });
     canvas.addEventListener('mouseleave', () => { this.hover = null; });
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const c = this.toCanvas(e.clientX, e.clientY);
+      this.zoomAt(Math.exp(-e.deltaY * 0.0015), c.x, c.y);
+    }, { passive: false });
+    canvas.addEventListener('pointerdown', (e) => {
+      this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (this.pointers.size === 1) this.dragDist = 0;
+      canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      const old = this.pointers.get(e.pointerId);
+      if (!old) return;
+      const scale = this.canvas.width / this.canvas.getBoundingClientRect().width;
+      if (this.pointers.size === 1) {
+        const dx = e.clientX - old.x, dy = e.clientY - old.y;
+        this.dragDist += Math.abs(dx) + Math.abs(dy);
+        if (this.dragDist > 8 && this.zoom > 1) this.panBy(dx * scale, dy * scale);
+      } else if (this.pointers.size === 2) {
+        const [a, c] = [...this.pointers.values()];
+        const other = a === old ? c : a;
+        const before = Math.hypot(old.x - other.x, old.y - other.y);
+        const after = Math.hypot(e.clientX - other.x, e.clientY - other.y);
+        const mid = this.toCanvas((e.clientX + other.x) / 2, (e.clientY + other.y) / 2);
+        if (before > 0) this.zoomAt(after / before, mid.x, mid.y);
+        this.dragDist = 99;
+      }
+      this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    });
+    const release = (e: PointerEvent) => {
+      if (!this.pointers.delete(e.pointerId)) return;
+      if (this.dragDist > 8) this.swallowClick = true;
+    };
+    canvas.addEventListener('pointerup', release);
+    canvas.addEventListener('pointercancel', release);
     new ResizeObserver(() => this.resize()).observe(canvas.parentElement!);
     this.resize();
     const loop = (t: number) => {
@@ -88,7 +133,50 @@ export class Board {
   }
 
   private layout(g: Game) {
-    this.view = makeView(g.w, g.h, this.angle, this.canvas.width, this.canvas.height, DOOR);
+    const cw = this.canvas.width, ch = this.canvas.height;
+    this.view = applyZoom(makeView(g.w, g.h, this.angle, cw, ch, DOOR), this.zoom, this.panX, this.panY, cw, ch);
+  }
+
+  private toCanvas(cx: number, cy: number) {
+    const r = this.canvas.getBoundingClientRect();
+    return { x: ((cx - r.left) / r.width) * this.canvas.width, y: ((cy - r.top) / r.height) * this.canvas.height };
+  }
+
+  private clampPan() {
+    const mx = panLimit(this.zoom, this.canvas.width), my = panLimit(this.zoom, this.canvas.height);
+    this.panX = Math.max(-mx, Math.min(mx, this.panX));
+    this.panY = Math.max(-my, Math.min(my, this.panY));
+  }
+
+  /** Zoomt so, dass der Punkt unter dem Finger oder der Maus stehen bleibt. */
+  zoomAt(factor: number, sx = this.canvas.width / 2, sy = this.canvas.height / 2) {
+    const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, this.zoom * factor));
+    const k = next / this.zoom;
+    const cx = this.canvas.width / 2, cy = this.canvas.height / 2;
+    this.panX = (sx - cx) - k * (sx - cx - this.panX);
+    this.panY = (sy - cy) - k * (sy - cy - this.panY);
+    this.zoom = next;
+    this.clampPan();
+    this.onZoom();
+  }
+
+  panBy(dx: number, dy: number) {
+    this.panX += dx; this.panY += dy;
+    this.clampPan();
+  }
+
+  resetZoom() {
+    this.zoom = 1; this.panX = 0; this.panY = 0;
+    this.onZoom();
+  }
+
+  /** Holt ein Feld in die Bildmitte, wenn vergrößert ist. */
+  focusTile(x: number, y: number) {
+    const g = this.game;
+    if (!g || this.zoom <= 1) return;
+    this.layout(g);
+    const f = this.p(x + 0.5, y + 0.5);
+    this.panBy(this.canvas.width / 2 - f.x, this.canvas.height / 2 - f.y);
   }
 
   private p(x: number, y: number, z = 0) { return project(this.view, x, y, z); }
@@ -572,7 +660,7 @@ export class Board {
     this.layout(g);
     ctx.imageSmoothingEnabled = false;
     const key = [
-      this.canvas.width, this.canvas.height, this.angle, g.theme, g.chapter,
+      this.canvas.width, this.canvas.height, this.angle, this.zoom, this.panX, this.panY, g.theme, g.chapter,
       g.seen.map((r) => r.map(Number).join('')).join(), g.tiles.map((r) => r.join('')).join(),
     ].join('|');
     if (key !== this.floorKey) this.buildFloor(g, key);

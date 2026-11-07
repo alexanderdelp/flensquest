@@ -398,6 +398,29 @@ function gmButtons(g: Game) {
     <button class="primary" data-gmend ${g.gmCardPlayed && !busy ? '' : 'disabled'}>Runde beenden</button>`;
 }
 
+function setupZoom(b: Board) {
+  const bar = app.querySelector<HTMLElement>('.zoom')!;
+  const draw = () => {
+    bar.querySelector<HTMLButtonElement>('[data-zoom=in]')!.disabled = b.zoom >= 2.99;
+    bar.querySelector<HTMLButtonElement>('[data-zoom=out]')!.disabled = b.zoom <= 1.01;
+    bar.querySelector<HTMLButtonElement>('[data-zoom=reset]')!.disabled = b.zoom <= 1.01;
+  };
+  b.onZoom = draw;
+  draw();
+  bar.addEventListener('click', (e) => {
+    const k = (e.target as HTMLElement).closest('button')?.dataset.zoom;
+    if (k === 'in') {
+      b.zoomAt(1.4);
+      const g = b.game;
+      if (g && g.status === 'play') b.focusTile(E.activeHero(g).x, E.activeHero(g).y);
+    }
+    if (k === 'out') b.zoomAt(1 / 1.4);
+    if (k === 'reset') b.resetZoom();
+  });
+}
+
+let lastTurn = '';
+
 function setupTilt(b: Board) {
   const input = app.querySelector<HTMLInputElement>('[data-tilt]')!;
   const label = app.querySelector<HTMLElement>('[data-angle]')!;
@@ -423,6 +446,11 @@ function board() {
           <div class="banner" hidden></div>
           <div class="caption" hidden></div>
           <div class="recap" hidden></div>
+          <div class="zoom" role="group" aria-label="Zoom">
+            <button data-zoom="in" aria-label="Hineinzoomen" title="Hineinzoomen">＋</button>
+            <button data-zoom="out" aria-label="Herauszoomen" title="Herauszoomen">－</button>
+            <button data-zoom="reset" aria-label="Ganze Karte" title="Ganze Karte">⤢</button>
+          </div>
           <label class="tilt"><span>Blick <b data-angle></b></span>
             <input type="range" min="35" max="90" step="5" data-tilt aria-label="Blickwinkel"></label>
         </div>
@@ -432,9 +460,13 @@ function board() {
     view = new Board(app.querySelector<HTMLCanvasElement>('.board')!, tapTile);
     if (import.meta.env.DEV) (window as unknown as { board: Board }).board = view;
     setupTilt(view);
+    setupZoom(view);
     view.onStep = () => play('step');
   }
   const fresh = view!.game !== g;
+  const turn = `${g.round}:${g.turn}:${g.status}`;
+  if (turn !== lastTurn && g.status === 'play') view!.focusTile(E.activeHero(g).x, E.activeHero(g).y);
+  lastTurn = turn;
   view!.game = g;
   if (fresh) view!.sync(g);
   view!.marks = marks(g);

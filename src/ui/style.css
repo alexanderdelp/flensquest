@@ -101,7 +101,12 @@ small { font-weight: 400; }
 .recap ul { margin: 4px 0 0; padding-left: 1.1em; }
 .tilt span { min-width: 68px; }
 .tilt input { width: 170px; height: 28px; accent-color: var(--gold); }
-.board { display: block; cursor: pointer; touch-action: manipulation; image-rendering: pixelated; }
+.board { display: block; cursor: pointer; touch-action: none; image-rendering: pixelated; }
+.zoom {
+  position: absolute; left: 10px; bottom: 64px; z-index: 2; display: flex; gap: 6px; padding: 4px;
+  border-radius: 10px; background: rgba(11, 39, 51, .85);
+}
+.zoom button { width: 44px; height: 44px; min-height: 44px; padding: 0; font-size: 1.2rem; }
 
 .side { min-height: 0; display: flex; flex-direction: column; gap: 8px; background: var(--sand); border-radius: 10px; padding: 10px; }
 .party { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
@@ -143,6 +148,8 @@ small { font-weight: 400; }
 }
 
 @media (max-height: 460px) {
+  .zoom { bottom: auto; top: 6px; }
+  .zoom button { width: 34px; height: 34px; min-height: 34px; font-size: 1rem; }
   .audiobar { top: 2px; bottom: auto; right: 80px; padding: 0; background: none; }
   .audiobar button { width: 34px; height: 30px; min-height: 30px; font-size: .85rem; }
 }
