@@ -26,7 +26,9 @@ Ausgangspunkt war der Wunsch nach einem Spiel im Stil klassischer Dungeon-Bretts
 - **Bedienung:** Alles läuft per Klick oder Tippen auf dem Brett, ohne Tastatur. Mögliche Ziele sind markiert: grün zum Gehen, gold für Türen und Truhen, rot für Gegner. Aktionsknöpfe mindestens 44 px hoch.
 - **Layout:** Die Spielansicht passt ab 821 px Breite ohne Seiten-Scrollen auf den Bildschirm. Darunter stehen Brett und Seitenleiste untereinander.
 - **Optik:** Farben der Förde, Backstein und Sand als CSS-Variablen in `src/ui/style.css`. Alle Grafiken sind eigene Pixel-Art im 32er-Raster, im Code gezeichnet. Ausrüstung muss an der Figur sichtbar sein.
-- **Ansicht:** Canvas-Brett, Blickwinkel per Regler 35 bis 90 Grad. Wände bleiben im eigenen Feld, damit nichts verdeckt wird; Figuren stehen aufrecht.
+- **Ansicht:** Canvas-Brett mit echter Perspektive (`src/ui/projection.ts`), Blickwinkel per Regler 35 bis 90 Grad, Start 55. Wände sind Quader mit Höhe und dürfen Felder dahinter verdecken; Figuren schimmern dann durch. Türen stehen im Durchgang.
+- **Reichweite:** Heller Rand um das Gebiet und ein Punkt je Feld, nie nur eine Tönung des Bodens.
+- **Laune:** Figuren zeigen ihren Zustand im Sprite: finstere Miene nach Schaden, ab halben Lebenspunkten Verband, blaues Auge und Gewitterwolke.
 - **Meldungen:** Was der Spielleiter tut, steht auf dem Brett (Zeile, Banner, Rundenrückblick). Niemand soll dafür den Verlauf lesen müssen.
 - **Zielgeräte:** PC und iPad haben Vorrang. Das iPhone soll spielbar sein, darf aber keine Designentscheidung zulasten der anderen bestimmen.
 - **Betrieb:** Statische Seite ohne Server und ohne externe Anfragen zur Laufzeit. Für mehrere Geräte siehe `docs/mehrgeraete.md`. Der Spielstand liegt nur in `localStorage`, Schlüssel `flensquest:v1`.
