@@ -50,6 +50,19 @@ describe('Regeln', () => {
     expect(g.steps).toBe(h.spd - 1);
   });
 
+  it('Schritte und Tidenkosten stimmen', () => {
+    const g = play(['frauke', 'joern']);
+    const h = E.activeHero(g);
+    expect(E.stepsLeft(g)).toBe(3 * h.spd);
+    expect(E.tideCost(g, 1)).toBe(1);
+    expect(E.tideCost(g, h.spd)).toBe(1);
+    expect(E.tideCost(g, h.spd + 1)).toBe(2);
+    g.steps = 2; g.tiden = 1;
+    expect(E.stepsLeft(g)).toBe(2 + h.spd);
+    expect(E.tideCost(g, 2)).toBe(0);
+    expect(E.tideCost(g, 3)).toBe(1);
+  });
+
   it('Tür öffnet nur daneben und deckt den Raum auf', () => {
     const g = play(['frauke']);
     expect(E.openDoor(g, 5, 2)).toBe(false);

@@ -7,7 +7,10 @@ import {
 } from './sprites';
 import { makeView, project, unproject, type View } from './projection';
 
-export interface Mark extends Pos { kind: 'walk' | 'use' | 'foe'; act: string }
+export interface Mark extends Pos { kind: 'walk' | 'use' | 'foe'; act: string; steps?: number; tides?: number }
+
+/** Farbe der Punkte: gleiche Farbe, gleiche Tide. */
+const TIDE_DOT = ['#fff2c0', '#fff2c0', '#7fe3cf', '#9db6ff', '#e0a8ff'];
 
 const MARK_COLOR = { walk: 'rgba(90,200,170,', use: 'rgba(240,190,70,', foe: 'rgba(235,70,55,' };
 
@@ -112,6 +115,7 @@ export class Board {
 
   /** Bildschirmmitte eines Felds in CSS-Pixeln, für Tests. */
   screenOf(x: number, y: number) {
+    if (this.game) this.layout(this.game);
     const f = this.p(x + 0.5, y + 0.5);
     const r = this.canvas.getBoundingClientRect();
     return { x: r.left + (f.x / this.canvas.width) * r.width, y: r.top + (f.y / this.canvas.height) * r.height };
@@ -213,6 +217,28 @@ export class Board {
     this.drawReach(pulse);
   }
 
+  /** Die laufende Tide zählt als 1; sonst ist die erste neue Tide die 1. */
+  private dotTier(m: Mark) {
+    const g = this.game!;
+    return (m.tides ?? 0) + (g.steps ? 1 : 0);
+  }
+
+  /** Wegkosten am Feld unter der Maus. */
+  private drawHoverInfo() {
+    const m = this.marks.find((o) => o.kind === 'walk' && o.x === this.hover?.x && o.y === this.hover?.y);
+    if (!m?.steps) return;
+    const { ctx } = this;
+    const t = m.tides ?? 0;
+    const text = `${m.steps} ${m.steps === 1 ? 'Schritt' : 'Schritte'} · ${t ? `${t} ${t === 1 ? 'Tide' : 'Tiden'}` : 'keine neue Tide'}`;
+    const f = this.p(m.x + 0.5, m.y + 0.5, 0.75);
+    ctx.font = `bold ${Math.max(14, f.s * 0.4)}px 'Trebuchet MS', system-ui, sans-serif`;
+    ctx.textAlign = 'center'; ctx.lineJoin = 'round';
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(10,20,28,.92)';
+    ctx.strokeText(text, f.x, f.y);
+    ctx.fillStyle = '#fff2c0';
+    ctx.fillText(text, f.x, f.y);
+  }
+
   /** Reichweite: leuchtender Rand um das Gebiet und ein Punkt auf jedem Feld. */
   private drawReach(pulse: number) {
     const g = this.game, { ctx } = this;
@@ -225,12 +251,14 @@ export class Board {
     for (const m of walk) {
       if (this.hover?.x === m.x && this.hover?.y === m.y) this.floorQuad(m.x, m.y, 0.04, 'rgba(255,240,170,.6)', '#fff2c0');
       const f = this.p(m.x + 0.5, m.y + 0.5);
-      ctx.fillStyle = `rgba(255,240,170,${0.7 + pulse * 0.3})`;
+      ctx.globalAlpha = 0.75 + pulse * 0.25;
+      ctx.fillStyle = TIDE_DOT[Math.min(this.dotTier(m), 4)];
       ctx.strokeStyle = 'rgba(30,40,45,.75)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.ellipse(f.x, f.y, f.s * 0.13, f.s * 0.13 * Math.max(0.45, this.view.sin), 0, 0, Math.PI * 2);
       ctx.fill(); ctx.stroke();
+      ctx.globalAlpha = 1;
     }
     const edges: [number, number, number, number][] = [];
     for (const m of inside) {
@@ -506,6 +534,7 @@ export class Board {
     this.drawMarks();
     this.scene(g);
     this.drawArrows();
+    this.drawHoverInfo();
     this.overlay();
   }
 }

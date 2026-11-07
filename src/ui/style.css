@@ -103,6 +103,13 @@ small { font-weight: 400; }
 .pc.down { opacity: .5; }
 .dot { width: 36px; height: 36px; flex: none; image-rendering: pixelated; vertical-align: middle; }
 .turn { margin: 0; }
+.reach { margin: 0; font-size: .9rem; }
+.reach.legend { font-size: .8rem; }
+.tide { display: inline-block; width: 10px; height: 10px; margin-left: 4px; border-radius: 50%; border: 1px solid var(--tinte); }
+.tide.t1 { background: #fff2c0; }
+.tide.t2 { background: #7fe3cf; }
+.tide.t3 { background: #9db6ff; }
+.tide.t4 { background: #e0a8ff; }
 .seat { align-items: center; }
 .cards-gm { display: grid; gap: 6px; }
 .cards-gm button { text-align: left; padding: .4em .6em; }

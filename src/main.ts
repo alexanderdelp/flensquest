@@ -190,9 +190,9 @@ function marks(g: Game): Mark[] {
   if (g.status === 'gm' && g.gmHuman) return gmMarks(g);
   if (g.status !== 'play') return out;
   if (!aiming) {
-    for (const k of E.reachable(g).keys()) {
+    for (const [k, path] of E.reachable(g)) {
       const [x, y] = k.split(',').map(Number);
-      out.push({ x, y, kind: 'walk', act: 'move' });
+      out.push({ x, y, kind: 'walk', act: 'move', steps: path.length, tides: E.tideCost(g, path.length) });
     }
     for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
       if (E.canOpenDoor(g, x, y)) out.push({ x, y, kind: 'use', act: 'door' });
@@ -240,7 +240,7 @@ function act(action: E.Action) { net.send({ kind: 'request', device: DEVICE, act
 const portrait = (o: E.Hero) => toDataUrl(heroSprite(o.id, o.gear, 0, false, moodOf(o.hp, o.maxHp)));
 
 function panel() {
-  const g = game!, ch = CHAPTERS[g.chapter], h = E.activeHero(g), d = HEROES[h.id];
+  const g = game!, ch = CHAPTERS[g.chapter];
   const playing = g.status === 'play' && !busy;
   app.querySelector('.top')!.innerHTML = `
     <b>⚓ ${ch.title}</b>
@@ -253,7 +253,7 @@ function panel() {
       <img class="dot" alt="" src="${portrait(o)}">
       <span><b>${HEROES[o.id].name}</b><br><small>❤️ ${o.hp}/${o.maxHp} · 🥪 ${o.food} · ✨ ${o.charges}</small></span>
     </div>`).join('')}</div>
-    ${g.status === 'gm' && !g.gmHuman ? '<p class="turn">Der Oberpunktezähler stempelt …</p>' : g.status === 'gm' ? gmHint(g) : `<p class="turn"><b>${d.name}</b> · ${'🌊'.repeat(g.tiden)}${g.steps ? ` · 👣 ${g.steps}` : ''}</p>`}
+    ${g.status === 'gm' && !g.gmHuman ? '<p class="turn">Der Oberpunktezähler stempelt …</p>' : g.status === 'gm' ? gmHint(g) : heroTurn(g)}
     ${g.status === 'gm' && g.gmHuman ? gmButtons(g) : heroButtons(g, playing)}
     <details class="verlauf" ${logOpen ? 'open' : ''}><summary>Verlauf</summary>
       <ol class="log">${g.log.slice(-40).reverse().map((l) => `<li>${l}</li>`).join('')}</ol>
@@ -271,6 +271,18 @@ function panel() {
   });
   on('[data-card]', (el) => act({ type: 'gmCard', index: Number(el.dataset.card) }));
   on('[data-gmend]', () => { gmSel = null; act({ type: 'gmEnd' }); });
+}
+
+function heroTurn(g: Game) {
+  const h = E.activeHero(g);
+  const open = g.steps ? ` · ${g.steps} aus der laufenden Tide` : '';
+  const legend = Array.from({ length: Math.min(g.tiden, 4) }, (_, i) => {
+    const n = i + 1 + (g.steps ? 1 : 0);
+    return `<i class="tide t${Math.min(n, 4)}"></i>${n}`;
+  }).join(' ');
+  return `<p class="turn"><b>${HEROES[h.id].name}</b> · ${'🌊'.repeat(g.tiden)}</p>
+    <p class="reach">👣 <b>${E.stepsLeft(g)}</b> Schritte übrig · ${h.spd} je Tide${open}</p>
+    ${g.tiden ? `<p class="reach legend">Punkte zeigen die Tide: ${legend}</p>` : ''}`;
 }
 
 function heroButtons(g: Game, playing: boolean) {

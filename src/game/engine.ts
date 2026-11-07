@@ -198,6 +198,13 @@ export function reachable(g: Game): Map<string, Pos[]> {
   return out;
 }
 
+/** Schritte, die in diesem Zug noch möglich sind. */
+export const stepsLeft = (g: Game) => g.steps + g.tiden * activeHero(g).spd;
+
+/** Wie viele neue Tiden ein Weg dieser Länge kostet. */
+export const tideCost = (g: Game, len: number) =>
+  (len <= g.steps ? 0 : Math.ceil((len - g.steps) / activeHero(g).spd));
+
 export function moveTo(g: Game, x: number, y: number): boolean {
   const path = reachable(g).get(key(x, y));
   if (!path || g.status !== 'play') return false;
