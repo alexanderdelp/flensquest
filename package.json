@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --port 5190",
     "build": "tsc --noEmit && vite build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "telegram": "node tools/telegram.mjs"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

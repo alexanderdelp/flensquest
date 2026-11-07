@@ -31,3 +31,14 @@ npm run build
 - `src/game/engine.ts`: Spielregeln und Spielleiter, ohne Abhängigkeit zur Oberfläche
 - `src/main.ts`, `src/ui/style.css`: Oberfläche
 - `tests/engine.test.ts`: Regeltests und ein Bot, der alle Kapitel durchspielt
+
+## Telegram
+
+`tools/telegram.mjs` schickt Updates, Screenshots und Fragen über einen eigenen Bot. Die Zugangsdaten liegen außerhalb des Repositorys in `~/.config/flensquest/telegram.env` und werden nie committet.
+
+```bash
+npm run telegram -- send "Text"
+npm run telegram -- photo bild.png "Text"
+npm run telegram -- ask "Frage?" Ja Nein --wait 300
+npm run telegram -- inbox
+```
