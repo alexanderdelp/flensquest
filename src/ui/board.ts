@@ -19,9 +19,21 @@ interface Vis {
   hero?: HeroId; monster?: MonsterId; hp: number; maxHp: number; down: boolean; stuck: boolean; blind: boolean; gear: string[];
   /** Piet ist gerade unterwegs zum Gegner. */
   away?: boolean;
+  /** Piets Schulter: -1 links, 1 rechts, dazwischen wechselt er gerade. */
+  side?: number;
 }
 interface Floater { x: number; y: number; text: string; color: string; start: number; dur: number }
-interface Shot { x: number; y: number; color: string; size: number; gull?: boolean; flip?: boolean }
+interface Shot {
+  x: number; y: number; color: string; size: number; gull?: boolean; flip?: boolean;
+  /** Piet fliegt in Bildschirmkoordinaten, damit Start und Landung genau an seinem Platz liegen. */
+  at?: { x: number; y: number; size: number };
+}
+
+/** Piets Tageslauf in Millisekunden: sitzen, abheben, kreisen, landen. */
+const PIET_CYCLE = 9000;
+const PIET_SIT = 2600;
+const PIET_GLIDE = 700;
+const ease = (k: number) => k * k * (3 - 2 * k);
 
 const SHOT_COLOR: Record<string, string> = {
   frauke: '#dfe9ee', maren: '#fbfbf5', netz: '#f5ebcd', obermeister: '#b5302a', oberarchivar: '#b5302a', schmuggler: '#3f7a3a', kalle: '#7a3a14', fiete: '#2b3a5a', punktepruefer: '#b5302a', proehl: '#9fd8e8', juni: '#ffb545', licht: '#ffe27a',
@@ -400,7 +412,7 @@ export class Board {
     const put = (key: string, p: Pos, o: Partial<Vis>) => {
       const old = this.vis.get(key);
       next.set(key, {
-        key, flip: old?.flip ?? false, walking: false, dx: 0, dy: 0, alpha: 1, shake: 0,
+        key, flip: old?.flip ?? false, side: old?.side, walking: false, dx: 0, dy: 0, alpha: 1, shake: 0,
         hp: 1, maxHp: 1, down: false, stuck: false, blind: false, gear: [], ...o, x: p.x, y: p.y,
       });
     };
@@ -503,34 +515,59 @@ export class Board {
     await this.tween(130, (k) => { v.dx = nx * 0.45 * (1 - k); v.dy = ny * 0.45 * (1 - k); });
   }
 
-/** Piet fliegt hin, pikt dreimal und kehrt zurück. */
+  /** Piet fliegt von seinem Platz los, pikt dreimal und landet wieder dort, wo er hingehört. */
   private async peck(v: Vis, t: Vis) {
-    const s: Shot = { x: v.x, y: v.y, color: '#fff', size: 0, gull: true, flip: t.x < v.x };
+    const home = () => this.pietAt(v, { x: v.x + v.dx + v.shake, y: v.y + v.dy });
+    const prey = (lift = 0) => {
+      const q = this.p(t.x + 0.5, t.y + 0.6, 0.8 + lift);
+      return { x: q.x, y: q.y, size: q.s * 0.6 };
+    };
+    type P = { x: number; y: number; size: number };
+    const mix = (a: P, b: P, k: number): P => ({
+      x: a.x + (b.x - a.x) * k,
+      y: a.y + (b.y - a.y) * k - Math.sin(k * Math.PI) * b.size,
+      size: a.size + (b.size - a.size) * k,
+    });
+    const start = home();
+    const s: Shot = { x: t.x, y: t.y, color: '#fff', size: 0, gull: true, flip: prey().x < start.x, at: start };
     v.away = true;
     this.shots.push(s);
-    await this.tween(320, (k) => { s.x = v.x + (t.x - v.x) * k; s.y = v.y + (t.y - v.y) * k - Math.sin(k * Math.PI) * 0.6; });
-    await this.tween(360, (k) => { s.y = t.y - Math.abs(Math.sin(k * Math.PI * 3)) * 0.25; });
-    s.flip = !s.flip;
-    await this.tween(300, (k) => { s.x = t.x + (v.x - t.x) * k; s.y = t.y + (v.y - t.y) * k - Math.sin(k * Math.PI) * 0.6; });
+    await this.tween(340, (k) => { s.at = mix(start, prey(), ease(k)); });
+    await this.tween(360, (k) => { s.at = prey(Math.abs(Math.sin(k * Math.PI * 3)) * 0.25); });
+    const from = prey();
+    s.flip = home().x < from.x;
+    await this.tween(360, (k) => { s.at = mix(from, home(), ease(k)); });
     this.shots = this.shots.filter((o) => o !== s);
     v.away = false;
   }
 
-  /** Piet kreist um den Kopf der Nordhexe und landet ab und zu auf ihrer Schulter. */
+  /** Wo Piet gerade ist: Er kreist um den Kopf der Nordhexe und gleitet ab und zu auf ihre Schulter. */
+  private pietAt(v: Vis, pos: Pos) {
+    const f = this.p(pos.x + 0.5, pos.y + 0.7), size = f.s * 0.55;
+    const t = this.time + v.x * 997, ph = t % PIET_CYCLE, a = t / 520;
+    const orbit = { x: f.x + Math.cos(a) * f.s * 0.42, y: f.y - f.s * (1.25 + Math.sin(a) * 0.1) };
+    const seat = { x: f.x + f.s * 0.3 * (v.side ?? (v.flip ? -1 : 1)), y: f.y - f.s * 0.78 - Math.cos((v.side ?? 1) * Math.PI / 2) * f.s * 0.12 };
+    let w = 0, landing = false;
+    if (ph < PIET_SIT) w = 1;
+    else if (ph < PIET_SIT + PIET_GLIDE) w = 1 - ease((ph - PIET_SIT) / PIET_GLIDE);
+    else if (ph > PIET_CYCLE - PIET_GLIDE) { w = ease((ph - PIET_CYCLE + PIET_GLIDE) / PIET_GLIDE); landing = true; }
+    const hop = Math.sin(w * Math.PI) * f.s * 0.18;
+    let flip = Math.sin(a) > 0;
+    if (w === 1) flip = v.flip;
+    else if (w > 0) flip = landing ? seat.x < orbit.x : orbit.x < seat.x;
+    return {
+      x: orbit.x + (seat.x - orbit.x) * w,
+      y: orbit.y + (seat.y - orbit.y) * w - hop,
+      size, flip, frame: w === 1 ? 0 : Math.floor(t / 120),
+    };
+  }
+
   private drawPiet(v: Vis, pos: Pos) {
     if (v.away || v.down) return;
-    const f = this.p(pos.x + 0.5, pos.y + 0.7), size = f.s * 0.55;
-    const t = this.time + v.x * 997;
-    const sitting = t % 9000 < 2600;
-    let x: number, y: number, flip: boolean, frame: number;
-    if (sitting) {
-      x = f.x + f.s * (v.flip ? -0.3 : 0.3); y = f.y - f.s * 0.78; flip = v.flip; frame = 0;
-    } else {
-      const a = t / 520;
-      x = f.x + Math.cos(a) * f.s * 0.42; y = f.y - f.s * (1.25 + Math.sin(a) * 0.1);
-      flip = Math.sin(a) > 0; frame = Math.floor(t / 120);
-    }
-    this.ctx.drawImage(piet(frame, flip), x - size / 2, y - size / 2, size, size);
+    const want = v.flip ? -1 : 1;
+    v.side = v.side === undefined ? want : v.side + Math.sign(want - v.side) * Math.min(Math.abs(want - v.side), 0.08);
+    const q = this.pietAt(v, pos);
+    this.ctx.drawImage(piet(q.frame, q.flip), q.x - q.size / 2, q.y - q.size / 2, q.size, q.size);
   }
 
   private async fly(v: Vis, t: Vis, kind: string) {
@@ -546,8 +583,9 @@ export class Board {
     const now = performance.now();
     for (const s of this.shots) {
       if (s.gull) {
-        const q = this.p(s.x + 0.5, s.y + 0.6, 0.8), size = q.s * 0.6;
-        ctx.drawImage(piet(Math.floor(now / 90), s.flip), q.x - size / 2, q.y - size / 2, size, size);
+        const p = this.p(s.x + 0.5, s.y + 0.6, 0.8);
+        const q = s.at ?? { x: p.x, y: p.y, size: p.s * 0.6 };
+        ctx.drawImage(piet(Math.floor(now / 90), s.flip), q.x - q.size / 2, q.y - q.size / 2, q.size, q.size);
         continue;
       }
       const f = this.p(s.x + 0.5, s.y + 0.6, 0.55), r = f.s * s.size;

@@ -1,7 +1,7 @@
-import { AKTE_CHAPTERS, AKTE_EPILOG, AKTE_EVENTS, AKTE_INTRO, AKTE_LOST, AKTE_RETRY } from './akte';
-import { CHAPTERS, EVENTS, type Chapter, type EventCard } from './data';
+import { AKTE_CARDS, AKTE_CHAPTERS, AKTE_EPILOG, AKTE_IDLE, AKTE_INTRO, AKTE_LOST, AKTE_RETRY } from './akte';
+import { CHAPTERS, GM_CARDS, GM_IDLE, type Chapter, type GmCard } from './data';
 
-/** Eine Kampagne bündelt Kapitel, Ereigniskarten und ihre Rahmentexte. */
+/** Eine Kampagne bündelt Kapitel, Spielleiterkarten und ihre Rahmentexte. */
 export interface CampaignDef {
   id: string;
   title: string;
@@ -9,7 +9,10 @@ export interface CampaignDef {
   /** Auswahlbild in public/img. */
   image: string;
   chapters: Chapter[];
-  events: EventCard[];
+  /** Stapel des Spielleiters; Doppelte sind gewollt. */
+  cards: GmCard[];
+  /** Sätze, wenn der Rechner keine Karte spielt. */
+  idle: string[];
   /** Einleitung vor dem ersten Kapitel. */
   intro?: string;
   /** Abschluss nach dem letzten Kapitel; ohne ihn genügt der Text des letzten Kapitels. */
@@ -25,7 +28,8 @@ export const CAMPAIGNS: CampaignDef[] = [
     image: 'img/kampagne-hafen.webp',
     blurb: 'Fünf Kapitel von der Hafenspitze bis ins Punktearchiv. Der ursprüngliche Einstieg in FlensQuest.',
     chapters: CHAPTERS,
-    events: EVENTS,
+    cards: GM_CARDS,
+    idle: GM_IDLE,
   },
   {
     id: 'akte',
@@ -33,7 +37,8 @@ export const CAMPAIGNS: CampaignDef[] = [
     image: 'img/kampagne-akte.webp',
     blurb: 'Das Geheimnis der verschwundenen Punkte: Sechs Missionen quer durch Flensburg, mit Fälschern, Möwenbanden und einem Oberarchivar.',
     chapters: AKTE_CHAPTERS,
-    events: AKTE_EVENTS,
+    cards: AKTE_CARDS,
+    idle: AKTE_IDLE,
     intro: AKTE_INTRO,
     epilog: AKTE_EPILOG,
     lostText: AKTE_LOST,

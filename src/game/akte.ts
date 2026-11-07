@@ -1,4 +1,4 @@
-import type { Chapter, EventCard } from './data';
+import type { Chapter, GmCard } from './data';
 
 /** Kampagne „Die Akte Förde“: Texte und Karten, keine Spiellogik. */
 export const AKTE_INTRO = 'In Flensburg stimmt was nicht. Am Hafen regnet es Strafzettel. Möwen werden wegen Falschparkens verwarnt, Fischbrötchen beschlagnahmt, und Tante Inge hat den Führerschein verloren, dabei hat sie gar kein Auto. Der Grund: Der legendäre Punkte-Stempel ist aus dem Punktearchiv verschwunden. Seitdem fallen Punkte, wo sie wollen. Die Polizei sagt, da ist sie nicht zuständig. Das Amt sagt, da ist es zuständig, aber erst ab Montag. Also bleibt nur ihr.';
@@ -8,15 +8,28 @@ export const AKTE_EPILOG = 'Der Punkte-Stempel liegt wieder dort, wo er hingehö
 export const AKTE_LOST = 'Die Akte ist zu, der Vorgang liegt beim Amt. Ihr bekommt einen Durchschlag.';
 export const AKTE_RETRY = 'Na, dann eben noch mal. Flensburg läuft nicht weg, und die Förde bleibt auch, wo sie ist.';
 
-export const AKTE_EVENTS: EventCard[] = [
-  { id: 'nix', name: 'Dienstschluss', text: 'Punkt vier fällt in den Amtsstuben der Griffel. Heute passiert nichts mehr.' },
-  { id: 'nix', name: 'Formular fehlt', text: 'Für diese Schikane fehlt der Antrag in dreifacher Ausfertigung.' },
-  { id: 'nix', name: 'Kaffeepause', text: 'Die Gegenseite macht Pause. Es gibt Filterkaffee.' },
-  { id: 'moin', name: 'Tante Inge winkt', text: 'Ein Thermosbecher von oben, durchs Kellerfenster: alle heilen 1 Lebenspunkt.' },
-  { id: 'schiet', name: 'Kellernässe', text: 'Es tropft von der Decke: jede Heldin und jeder Held nimmt 1 Schaden, außer mit Friesennerz.' },
+export const AKTE_CARDS: GmCard[] = [
+  { id: 'eile', name: 'Eilverfahren', text: 'Ausnahmsweise schnell: Alle Gegner laufen diese Runde 2 Felder weiter.' },
+  { id: 'eile', name: 'Eilverfahren', text: 'Ausnahmsweise schnell: Alle Gegner laufen diese Runde 2 Felder weiter.' },
+  { id: 'zorn', name: 'Dienstaufsicht', text: 'Der Chef schaut zu: Alle Gegner greifen diese Runde mit +1 an.' },
+  { id: 'zorn', name: 'Dienstaufsicht', text: 'Der Chef schaut zu: Alle Gegner greifen diese Runde mit +1 an.' },
+  { id: 'flicken', name: 'Erste Hilfe nach Vorschrift', text: 'Der am schwersten getroffene Gegner heilt 3 Lebenspunkte.' },
+  { id: 'flicken', name: 'Erste Hilfe nach Vorschrift', text: 'Der am schwersten getroffene Gegner heilt 3 Lebenspunkte.' },
+  { id: 'schiet', name: 'Kellernässe', text: 'Es tropft von der Decke: Jede Figur ohne Friesennerz nimmt 1 Schaden, den letzten Lebenspunkt aber nie.' },
+  { id: 'schiet', name: 'Kellernässe', text: 'Es tropft von der Decke: Jede Figur ohne Friesennerz nimmt 1 Schaden, den letzten Lebenspunkt aber nie.' },
+  { id: 'verstaerkung', name: 'Außendienst', text: 'Ein Knöllchenkobold kommt um die Ecke, mindestens 4 Felder von euch weg.' },
+  { id: 'verstaerkung', name: 'Außendienst', text: 'Ein Knöllchenkobold kommt um die Ecke, mindestens 4 Felder von euch weg.' },
+  { id: 'falle', name: 'Stolperakte', text: 'Ein loser Aktenstapel liegt jetzt 2 bis 3 Felder neben einer Figur, verdeckt. Suchen findet ihn.' },
+  { id: 'falle', name: 'Stolperakte', text: 'Ein loser Aktenstapel liegt jetzt 2 bis 3 Felder neben einer Figur, verdeckt. Suchen findet ihn.' },
   { id: 'klau', name: 'Beschlagnahmt', text: 'Ein Fischbrötchen wird als Beweismittel eingezogen.' },
+  { id: 'schlick', name: 'Formularstau', text: 'Erst ausfüllen, dann laufen: In der nächsten Runde läuft jede Figur 1 Feld weniger je Tide.' },
   { id: 'knoellchen', name: 'Falscher Bescheid', text: 'Per Post, ungefragt: 1 Punkt in Flensburg.' },
-  { id: 'verstaerkung', name: 'Außendienst', text: 'Ein Knöllchenkobold kommt um die Ecke.' },
+];
+
+export const AKTE_IDLE: string[] = [
+  'Punkt vier fällt in den Amtsstuben der Griffel. Die Gegenseite spart Tinte.',
+  'Für diese Schikane fehlt der Antrag in dreifacher Ausfertigung.',
+  'Die Gegenseite macht Pause. Es gibt Filterkaffee.',
 ];
 
 export const AKTE_CHAPTERS: Chapter[] = [

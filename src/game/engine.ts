@@ -1,6 +1,7 @@
 import {
-  HEROES, MONSTERS, MONSTER_CHARS, PUNKTE_LIMIT, SHOP, TIDEN,
-  type HeroId, type MonsterId, type ShopItem, type Spawn,
+  GM_BEFORE, GM_COST, HAND_MAX, HAND_START, HEROES, MONSTERS, MONSTER_CHARS, PUNKTE_LIMIT, SHOP, TIDEN,
+  TINTE_MAX, TINTE_RUNDE, TINTE_START,
+  type GmCard, type GmEffect, type HeroId, type MonsterId, type ShopItem, type Spawn,
 } from './data';
 import { campaignById } from './campaigns';
 
@@ -27,7 +28,7 @@ export type Fx =
   | { t: 'heal'; who: string; n: number }
   | { t: 'die'; who: string }
   | { t: 'float'; at: Pos; text: string }
-  | { t: 'card'; name: string; text: string }
+  | { t: 'card'; name: string; text: string; cost: number }
   | { t: 'note'; title: string; text: string }
   | { t: 'punkte'; n: number; total: number; why: string };
 
@@ -45,7 +46,13 @@ export interface Game {
   fx: Fx[];
   campaign: string; theme: number;
   notesDone: number[]; foesSeen: string[]; bossDead: boolean; phaseDone: boolean;
-  gmHuman: boolean; gmActed: number[]; gmMoved: number[]; gmCards: number[]; gmCardPlayed: boolean;
+  gmHuman: boolean; gmActed: number[]; gmMoved: number[];
+  /** Hand, Nachziehstapel und Ablage des Spielleiters als Nummern in der Kartenliste der Kampagne. */
+  gmHand: number[]; gmDeck: number[]; gmPile: number[];
+  /** Stempeltinte bezahlt die Karten. */
+  tinte: number;
+  /** Wirkungen bis zum Ende der Runde: mehr Schritte, mehr Angriff für die Gegner; Schlick bremst die Figuren. */
+  gmEile: boolean; gmZorn: boolean; slow: boolean;
   chapter: number; w: number; h: number;
   tiles: string[][]; seen: boolean[][];
   heroes: Hero[]; monsters: Monster[];
@@ -91,7 +98,8 @@ export function startChapter(c: Campaign, seed = Date.now()): Game {
   const g: Game = {
     chapter: c.chapter, w: ch.map[0].length, h: ch.map.length,
     fx: [], campaign: campaignById(c.campaign).id, theme: ch.theme ?? c.chapter,
-    notesDone: [], foesSeen: [], bossDead: false, phaseDone: false, gmHuman: !!c.gmHuman, gmActed: [], gmMoved: [], gmCards: [], gmCardPlayed: false,
+    notesDone: [], foesSeen: [], bossDead: false, phaseDone: false, gmHuman: !!c.gmHuman, gmActed: [], gmMoved: [],
+    gmHand: [], gmDeck: [], gmPile: [], tinte: TINTE_START, gmEile: false, gmZorn: false, slow: false,
     tiles: [], seen: [], heroes: [], monsters: [], chests: [], traps: [], props: [],
     goal: null, goalTaken: false, exit: null,
     turn: 0, tiden: 0, steps: 0, attacked: false, specialUsed: false,
@@ -123,6 +131,8 @@ export function startChapter(c: Campaign, seed = Date.now()): Game {
     return { ...h, gear: [...h.gear], ...starts[i], hp, maxHp: hp, charges: 2, down: false, pfoten: h.gear.includes('katzenohren') };
   });
   log(g, `Kapitel ${c.chapter + 1}: ${ch.title}`);
+  g.gmDeck = shuffle(g, campaignById(c.campaign).cards.map((_, i) => i));
+  for (let i = 0; i < HAND_START; i++) drawCard(g);
   reveal(g);
   beginTurn(g);
   return g;
@@ -134,7 +144,10 @@ function spawn(g: Game, kind: MonsterId, x: number, y: number, scale: number) {
 }
 
 export const chapterOf = (g: Game) => campaignById(g.campaign).chapters[g.chapter];
-export const deckOf = (g: Game) => campaignById(g.campaign).events;
+export const cardOf = (g: Game, i: number): GmCard => campaignById(g.campaign).cards[i];
+export const costOf = (g: Game, i: number) => GM_COST[cardOf(g, i).id];
+/** Schritte je Tide; Schlick kostet einen, nie unter 1. */
+export const spdOf = (g: Game, h: Hero) => Math.max(1, h.spd - (g.slow ? 1 : 0));
 
 export function log(g: Game, msg: string) { g.log.push(msg); }
 
@@ -233,7 +246,7 @@ export function beginTurn(g: Game) {
 /** Wege, die die aktive Figur mit ihren Schritten plus Tiden erreicht. */
 export function reachable(g: Game): Map<string, Pos[]> {
   const h = activeHero(g);
-  const max = g.steps + g.tiden * h.spd;
+  const max = g.steps + g.tiden * spdOf(g, h);
   const out = new Map<string, Pos[]>();
   const q: { p: Pos; path: Pos[] }[] = [{ p: { x: h.x, y: h.y }, path: [] }];
   const done = new Set([key(h.x, h.y)]);
@@ -255,11 +268,11 @@ export function reachable(g: Game): Map<string, Pos[]> {
 }
 
 /** Schritte, die in diesem Zug noch möglich sind. */
-export const stepsLeft = (g: Game) => g.steps + g.tiden * activeHero(g).spd;
+export const stepsLeft = (g: Game) => g.steps + g.tiden * spdOf(g, activeHero(g));
 
 /** Wie viele neue Tiden ein Weg dieser Länge kostet. */
 export const tideCost = (g: Game, len: number) =>
-  (len <= g.steps ? 0 : Math.ceil((len - g.steps) / activeHero(g).spd));
+  (len <= g.steps ? 0 : Math.ceil((len - g.steps) / spdOf(g, activeHero(g))));
 
 export function moveTo(g: Game, x: number, y: number): boolean {
   const path = reachable(g).get(key(x, y));
@@ -269,7 +282,7 @@ export function moveTo(g: Game, x: number, y: number): boolean {
   const mv: Fx = { t: 'move', who: hkey(h), path: walked };
   g.fx.push(mv);
   for (const p of path) {
-    if (g.steps === 0) { g.tiden--; g.steps = h.spd; }
+    if (g.steps === 0) { g.tiden--; g.steps = spdOf(g, h); }
     g.steps--;
     h.x = p.x; h.y = p.y;
     walked.push({ x: p.x, y: p.y });
@@ -562,7 +575,7 @@ function monsterAct(g: Game, m: Monster) {
   if (m.stuck) { m.stuck = false; m.blind = false; log(g, `${d.name} setzt aus.`); return; }
   const path = pathToward(g, m, living(g), d.range);
   if (path === null) return;
-  const walk = path.slice(0, d.spd);
+  const walk = path.slice(0, monsterSpd(g, m));
   if (walk.length) {
     g.fx.push({ t: 'move', who: mkey(m), path: walk });
     m.x = walk[walk.length - 1].x; m.y = walk[walk.length - 1].y;
@@ -573,8 +586,9 @@ function monsterAct(g: Game, m: Monster) {
 
 function strike(g: Game, m: Monster, t: Hero) {
   const d = MONSTERS[m.kind];
-  const r = rollAttack(g, d.att, t.arm);
-  log(g, `${d.name} → ${HEROES[t.id].name}: 🎲 ${r.a}+${r.b}+${d.att} = ${r.total} (nötig ${r.need}) ${r.hit ? `Treffer, ${d.dmg} Schaden` : 'daneben'}`);
+  const att = d.att + (g.gmZorn ? 1 : 0);
+  const r = rollAttack(g, att, t.arm);
+  log(g, `${d.name} → ${HEROES[t.id].name}: 🎲 ${r.a}+${r.b}+${att} = ${r.total} (nötig ${r.need}) ${r.hit ? `Treffer, ${d.dmg} Schaden` : 'daneben'}`);
   g.fx.push({ t: 'attack', who: mkey(m), target: hkey(t), shot: d.range > 1 ? m.kind : null, a: r.a, b: r.b, total: r.total, need: r.need, hit: r.hit, dmg: d.dmg });
   if (!r.hit) return;
   hurtHero(g, t, d.dmg);
@@ -584,31 +598,164 @@ function strike(g: Game, m: Monster, t: Hero) {
   }
 }
 
-const drawCard = (g: Game) => Math.floor(rand(g) * deckOf(g).length);
+const monsterSpd = (g: Game, m: Monster) => MONSTERS[m.kind].spd + (g.gmEile ? 2 : 0);
 
-function playEvent(g: Game, index: number) {
-  const e = deckOf(g)[index];
-  log(g, `📜 ${e.name}: ${e.text}`);
-  g.fx.push({ t: 'card', name: e.name, text: e.text });
-  if (e.id === 'moin') living(g).forEach((h) => {
-    if (h.hp < h.maxHp) g.fx.push({ t: 'heal', who: hkey(h), n: 1 });
-    h.hp = Math.min(h.maxHp, h.hp + 1);
-  });
-  if (e.id === 'schiet') living(g).filter((h) => !h.gear.includes('friesennerz')).forEach((h) => {
-    if (h.hp > 1) { h.hp--; g.fx.push({ t: 'hurt', who: hkey(h), n: 1 }); }
-  });
-  if (e.id === 'klau') { const h = living(g).find((o) => o.food > 0); if (h) h.food--; }
-  if (e.id === 'knoellchen') addPunkte(g, 1, 'Falsch geparkt');
-  if (e.id === 'verstaerkung') {
-    const spots: Pos[] = [];
-    for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
-      if (g.seen[y][x] && walkable(g.tiles[y][x]) && !monsterAt(g, x, y) && !heroAt(g, x, y) && !blocked(g, x, y)
-        && Math.min(...living(g).map((h) => dist(h, { x, y }))) >= 4) spots.push({ x, y });
+function shuffle<T>(g: Game, list: T[]): T[] {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand(g) * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/** Zieht eine Karte auf die Hand; ist der Stapel leer, wird die Ablage gemischt. */
+function drawCard(g: Game) {
+  if (g.gmHand.length >= HAND_MAX) return;
+  if (!g.gmDeck.length) { g.gmDeck = shuffle(g, g.gmPile); g.gmPile = []; }
+  const c = g.gmDeck.shift();
+  if (c !== undefined) g.gmHand.push(c);
+}
+
+/** Zu Beginn jedes Spielleiter-Zugs: Tinte, eine neue Karte, Schlick ist vorbei. */
+function gmBegin(g: Game) {
+  g.tinte = Math.min(TINTE_MAX, g.tinte + TINTE_RUNDE);
+  g.slow = false;
+  drawCard(g);
+}
+
+const activeFoes = (g: Game) => g.monsters.filter((m) => isActive(g, m));
+
+function freeTile(g: Game, x: number, y: number) {
+  return g.seen[y][x] && g.tiles[y][x] === '.' && !monsterAt(g, x, y) && !heroAt(g, x, y) && !blocked(g, x, y)
+    && !chestAt(g, x, y) && !g.traps.some((t) => t.x === x && t.y === y)
+    && !(g.goal && !g.goalTaken && g.goal.x === x && g.goal.y === y);
+}
+
+function spotsFar(g: Game): Pos[] {
+  const out: Pos[] = [];
+  for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
+    if (freeTile(g, x, y) && Math.min(...living(g).map((h) => dist(h, { x, y }))) >= 4) out.push({ x, y });
+  }
+  return out;
+}
+
+function spotsNear(g: Game): Pos[] {
+  const out: Pos[] = [];
+  for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
+    if (freeTile(g, x, y) && living(g).some((h) => dist(h, { x, y }) >= 2 && dist(h, { x, y }) <= 3)) out.push({ x, y });
+  }
+  return out;
+}
+
+const hurtFoe = (g: Game) => activeFoes(g).filter((m) => m.hp < m.maxHp)
+  .sort((a, b) => (b.maxHp - b.hp) - (a.maxHp - a.hp) || Number(!!MONSTERS[b.kind].boss) - Number(!!MONSTERS[a.kind].boss))[0];
+
+const wetHeroes = (g: Game) => living(g).filter((h) => !h.gear.includes('friesennerz') && h.hp > 1);
+
+/** Ob eine Karte gerade etwas bewirken würde. Karten ohne Wirkung lassen sich nicht spielen. */
+function cardWorks(g: Game, id: GmEffect): boolean {
+  switch (id) {
+    case 'eile': return !g.gmEile && activeFoes(g).length > 0;
+    case 'zorn': return !g.gmZorn && activeFoes(g).length > 0;
+    case 'flicken': return !!hurtFoe(g);
+    case 'schiet': return wetHeroes(g).length > 0;
+    case 'verstaerkung': return spotsFar(g).length > 0;
+    case 'falle': return spotsNear(g).length > 0;
+    case 'klau': return living(g).some((h) => h.food > 0);
+    case 'schlick': return !g.slow;
+    case 'knoellchen': return true;
+    default: return false;
+  }
+}
+
+export function canPlayCard(g: Game, handIndex: number) {
+  const c = g.gmHand[handIndex];
+  return g.status === 'gm' && c !== undefined && costOf(g, c) <= g.tinte && cardWorks(g, cardOf(g, c).id);
+}
+
+/** Spielt eine Handkarte aus: Tinte bezahlen, Wirkung ausführen, ab auf die Ablage. */
+function playCard(g: Game, handIndex: number): boolean {
+  if (!canPlayCard(g, handIndex)) return false;
+  const c = g.gmHand[handIndex], card = cardOf(g, c), cost = costOf(g, c);
+  g.gmHand.splice(handIndex, 1);
+  g.gmPile.push(c);
+  g.tinte -= cost;
+  log(g, `📜 ${card.name} (${cost} Tinte): ${card.text}`);
+  g.fx.push({ t: 'card', name: card.name, text: card.text, cost });
+  switch (card.id) {
+    case 'eile': g.gmEile = true; break;
+    case 'zorn': g.gmZorn = true; break;
+    case 'flicken': {
+      const m = hurtFoe(g)!, n = Math.min(3, m.maxHp - m.hp);
+      m.hp += n;
+      g.fx.push({ t: 'heal', who: mkey(m), n });
+      break;
     }
-    if (spots.length) {
-      const s = spots[Math.floor(rand(g) * spots.length)];
+    case 'schiet':
+      wetHeroes(g).forEach((h) => { h.hp--; g.fx.push({ t: 'hurt', who: hkey(h), n: 1 }); });
+      break;
+    case 'verstaerkung': {
+      const spots = spotsFar(g), s = spots[Math.floor(rand(g) * spots.length)];
       spawn(g, 'knoellchen', s.x, s.y, 1);
+      break;
     }
+    case 'falle': {
+      const spots = spotsNear(g);
+      g.traps.push(spots[Math.floor(rand(g) * spots.length)]);
+      break;
+    }
+    case 'klau': {
+      const h = [...living(g)].sort((a, b) => b.food - a.food)[0];
+      h.food--;
+      g.fx.push({ t: 'float', at: { x: h.x, y: h.y }, text: '−1 Fischbrötchen' });
+      break;
+    }
+    case 'schlick': g.slow = true; break;
+    case 'knoellchen': addPunkte(g, 1, card.name); break;
+    default:
+  }
+  return true;
+}
+
+/** Wie sehr sich eine Karte für den Rechner gerade lohnt; 0 heißt: nicht spielen. */
+function cardValue(g: Game, id: GmEffect): number {
+  const foes = activeFoes(g), heroes = living(g);
+  const gap = (m: Monster) => Math.min(...heroes.map((h) => dist(m, h))) - MONSTERS[m.kind].range;
+  switch (id) {
+    case 'eile': {
+      const n = foes.filter((m) => !m.stuck && gap(m) > MONSTERS[m.kind].spd && gap(m) <= MONSTERS[m.kind].spd + 2).length;
+      return n ? 1 + n : 0;
+    }
+    case 'zorn': {
+      const n = foes.filter((m) => !m.stuck && gap(m) <= monsterSpd(g, m)).length;
+      return n >= 2 ? n : 0;
+    }
+    case 'flicken': { const m = hurtFoe(g); return m && m.maxHp - m.hp >= 3 ? (MONSTERS[m.kind].boss ? 4 : 2) : 0; }
+    case 'schiet': return wetHeroes(g).length >= Math.min(2, heroes.length) ? 1 + wetHeroes(g).length : 0;
+    case 'verstaerkung': return 3;
+    case 'falle': return 2;
+    case 'klau': return heroes.some((h) => h.food > 0 && h.hp < h.maxHp - 3) ? 2 : 1;
+    case 'schlick': return 2;
+    case 'knoellchen': return 3;
+    default: return 0;
+  }
+}
+
+/** Der Rechner spielt die lohnendsten bezahlbaren Karten einer Phase. */
+function aiCards(g: Game, before: boolean): number {
+  let played = 0;
+  for (;;) {
+    let best = -1, bestV = 0;
+    g.gmHand.forEach((c, i) => {
+      const id = cardOf(g, c).id, value = cardValue(g, id);
+      if (GM_BEFORE.includes(id) !== before || value <= 0 || !canPlayCard(g, i)) return;
+      const v = value / costOf(g, c) + value / 10;
+      if (v > bestV) { bestV = v; best = i; }
+    });
+    if (best < 0 || g.status !== 'gm') return played;
+    playCard(g, best);
+    played++;
   }
 }
 
@@ -616,6 +763,9 @@ function playEvent(g: Game, index: number) {
 export function* gmTurn(g: Game): Generator<void> {
   if (g.status !== 'gm') return;
   log(g, '— Der Oberpunktezähler ist dran —');
+  gmBegin(g);
+  let played = aiCards(g, true);
+  if (played) yield;
   for (const m of [...g.monsters]) {
     if (!isActive(g, m) || !g.monsters.includes(m)) continue;
     monsterAct(g, m);
@@ -623,7 +773,12 @@ export function* gmTurn(g: Game): Generator<void> {
     yield;
     if (g.status !== 'gm') return;
   }
-  playEvent(g, drawCard(g));
+  played += aiCards(g, false);
+  if (g.status !== 'gm') return;
+  if (!played) {
+    const idle = campaignById(g.campaign).idle;
+    log(g, `${idle[g.round % idle.length]} (${g.tinte} Tinte)`);
+  }
   stamp(g);
   yield;
   nextRound(g);
@@ -639,6 +794,7 @@ function nextRound(g: Game) {
   if (g.status !== 'gm') return;
   g.round++;
   g.status = 'play';
+  g.gmEile = false; g.gmZorn = false;
   g.heroes.forEach((h) => { if (h.down && h.hp > 0) h.down = false; });
   g.turn = g.heroes.findIndex((h) => !h.down);
   beginTurn(g);
@@ -648,8 +804,8 @@ function nextRound(g: Game) {
 
 function gmStart(g: Game) {
   log(g, '— Der Spielleiter ist dran —');
-  g.gmActed = []; g.gmMoved = []; g.gmCardPlayed = false;
-  g.gmCards = [drawCard(g), drawCard(g)];
+  g.gmActed = []; g.gmMoved = [];
+  gmBegin(g);
   g.monsters.filter((m) => m.stuck && isActive(g, m)).forEach((m) => {
     m.stuck = false; m.blind = false;
     g.gmActed.push(m.uid);
@@ -668,7 +824,7 @@ export const gmCanAct = (g: Game, m: Monster) =>
 export function gmReachable(g: Game, m: Monster): Map<string, Pos[]> {
   const out = new Map<string, Pos[]>();
   if (!gmCanAct(g, m) || g.gmMoved.includes(m.uid)) return out;
-  const max = MONSTERS[m.kind].spd;
+  const max = monsterSpd(g, m);
   const q: { p: Pos; path: Pos[] }[] = [{ p: { x: m.x, y: m.y }, path: [] }];
   const done = new Set([key(m.x, m.y)]);
   while (q.length) {
@@ -704,14 +860,12 @@ function gmAttack(g: Game, m: Monster, id: HeroId): boolean {
 }
 
 function gmCard(g: Game, i: number): boolean {
-  if (g.status !== 'gm' || !g.gmHuman || g.gmCardPlayed || g.gmCards[i] === undefined) return false;
-  g.gmCardPlayed = true;
-  playEvent(g, g.gmCards[i]);
-  return true;
+  if (!g.gmHuman) return false;
+  return playCard(g, i);
 }
 
 function gmEnd(g: Game): boolean {
-  if (g.status !== 'gm' || !g.gmHuman || !g.gmCardPlayed) return false;
+  if (g.status !== 'gm' || !g.gmHuman) return false;
   stamp(g);
   nextRound(g);
   return true;
