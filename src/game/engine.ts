@@ -11,7 +11,7 @@ export interface CampaignHero {
 export interface Campaign { heroes: CampaignHero[]; oere: number; chapter: number; gmHuman?: boolean }
 
 export interface Hero extends CampaignHero, Pos {
-  hp: number; maxHp: number; charges: number; down: boolean;
+  hp: number; maxHp: number; charges: number; down: boolean; pfoten: boolean;
 }
 export interface Monster extends Pos {
   uid: number; kind: MonsterId; hp: number; maxHp: number; stuck: boolean; blind?: boolean;
@@ -110,7 +110,7 @@ export function startChapter(c: Campaign, seed = Date.now()): Game {
   });
   g.heroes = c.heroes.map((h, i) => {
     const hp = HEROES[h.id].hp + (n === 1 ? 4 : 0);
-    return { ...h, gear: [...h.gear], ...starts[i], hp, maxHp: hp, charges: 2, down: false };
+    return { ...h, gear: [...h.gear], ...starts[i], hp, maxHp: hp, charges: 2, down: false, pfoten: h.gear.includes('katzenohren') };
   });
   log(g, `Kapitel ${c.chapter + 1}: ${ch.title}`);
   reveal(g);
@@ -264,6 +264,13 @@ export function addPunkte(g: Game, n: number, why = '') {
 function hurtHero(g: Game, h: Hero, dmg: number) {
   h.hp = Math.max(0, h.hp - dmg);
   g.fx.push({ t: 'hurt', who: hkey(h), n: dmg });
+  if (h.hp === 0 && h.pfoten) {
+    h.pfoten = false;
+    h.hp = 1;
+    log(g, `${HEROES[h.id].name} landet auf den Pfoten: 1 Lebenspunkt bleibt.`);
+    g.fx.push({ t: 'float', at: { x: h.x, y: h.y }, text: 'Miau!' });
+    return;
+  }
   if (h.hp === 0 && !h.down) {
     h.down = true;
     log(g, `${HEROES[h.id].name} geht zu Boden: 2 Punkte.`);
