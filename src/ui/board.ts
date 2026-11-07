@@ -1,7 +1,7 @@
 import { CHAPTERS } from '../game/data';
-import type { Game, Pos } from '../game/engine';
-import { activeHero, chestAt, isActive } from '../game/engine';
-import { MONSTERS } from '../game/data';
+import type { Fx, Game, Pos } from '../game/engine';
+import { activeHero, chestAt, hkey, isActive, mkey } from '../game/engine';
+import { MONSTERS, type HeroId, type MonsterId } from '../game/data';
 import {
   SPRITE, THEMES, floorTile, heroDown, heroSprite, monsterSprite, objects, wallFace, wallTop,
 } from './sprites';
@@ -9,6 +9,18 @@ import {
 export interface Mark extends Pos { kind: 'walk' | 'use' | 'foe'; act: string }
 
 const MARK_COLOR = { walk: 'rgba(90,200,170,', use: 'rgba(240,190,70,', foe: 'rgba(235,70,55,' };
+
+interface Vis {
+  key: string; x: number; y: number; flip: boolean; walking: boolean;
+  dx: number; dy: number; alpha: number; shake: number;
+  hero?: HeroId; monster?: MonsterId; hp: number; maxHp: number; down: boolean; stuck: boolean; gear: string[];
+}
+interface Floater { x: number; y: number; text: string; color: string; start: number; dur: number }
+interface Shot { x: number; y: number; color: string; size: number }
+
+const SHOT_COLOR: Record<string, string> = {
+  frauke: '#dfe9ee', maren: '#fbfbf5', netz: '#f5ebcd', stempel: '#b5302a',
+};
 
 const hash = (x: number, y: number) => ((x * 73856093) ^ (y * 19349663)) >>> 0;
 
@@ -27,6 +39,11 @@ export class Board {
   private oy = 0;
   private raf = 0;
   private time = 0;
+  private vis = new Map<string, Vis>();
+  private floats: Floater[] = [];
+  private shots: Shot[] = [];
+  /** Tempo der Animationen; Tippen während des Spielleiter-Zugs erhöht es. */
+  speed = 1;
 
   constructor(readonly canvas: HTMLCanvasElement, private onTile: (p: Pos) => void) {
     this.ctx = canvas.getContext('2d')!;
@@ -146,6 +163,135 @@ export class Board {
     return objects.logbuch();
   }
 
+  /** Figurenliste an den Spielzustand angleichen. */
+  sync(g: Game) {
+    const next = new Map<string, Vis>();
+    const put = (key: string, p: Pos, o: Partial<Vis>) => {
+      const old = this.vis.get(key);
+      next.set(key, {
+        key, flip: old?.flip ?? false, walking: false, dx: 0, dy: 0, alpha: 1, shake: 0,
+        hp: 1, maxHp: 1, down: false, stuck: false, gear: [], ...o, x: p.x, y: p.y,
+      });
+    };
+    g.heroes.forEach((h) => put(hkey(h), h, { hero: h.id, down: h.down, gear: h.gear, hp: h.hp, maxHp: h.maxHp }));
+    g.monsters.forEach((m) => { if (isActive(g, m)) put(mkey(m), m, { monster: m.kind, hp: m.hp, maxHp: m.maxHp, stuck: m.stuck }); });
+    this.vis = next;
+  }
+
+  private tween(ms: number, fn: (p: number) => void): Promise<void> {
+    const dur = ms / this.speed, start = performance.now();
+    return new Promise((res) => {
+      const step = () => {
+        const p = Math.min(1, (performance.now() - start) / dur);
+        fn(p);
+        if (p < 1) setTimeout(step, 16); else res();
+      };
+      step();
+    });
+  }
+
+  private floatText(x: number, y: number, text: string, color: string, dur = 1100) {
+    this.floats.push({ x, y, text, color, start: performance.now(), dur: dur / this.speed });
+  }
+
+  /** Spielt ein Ereignis ab und wartet, bis es zu sehen war. */
+  async play(f: Fx): Promise<void> {
+    const v = 'who' in f ? this.vis.get(f.who) : undefined;
+    const target = 'target' in f ? this.vis.get(f.target) : undefined;
+    switch (f.t) {
+      case 'move': {
+        if (!v) return;
+        v.walking = true;
+        for (const p of f.path) {
+          const sx = v.x, sy = v.y;
+          if (p.x !== sx) v.flip = p.x < sx;
+          await this.tween(130, (k) => { v.x = sx + (p.x - sx) * k; v.y = sy + (p.y - sy) * k; });
+        }
+        v.walking = false;
+        return;
+      }
+      case 'attack':
+      case 'shot': {
+        if (!v || !target) return;
+        if (target.x !== v.x) v.flip = target.x < v.x;
+        if (f.shot) await this.fly(v, target, f.shot);
+        else await this.lunge(v, target);
+        if (f.t === 'attack' && f.a) this.floatText(v.x, v.y - 0.3, `🎲 ${f.a}+${f.b}`, '#fff2c0', 900);
+        if (f.t === 'attack' && !f.hit) {
+          this.floatText(target.x, target.y, 'daneben', '#d7e3e8');
+          await this.tween(300, () => undefined);
+        }
+        return;
+      }
+      case 'hurt': {
+        if (!v) return;
+        v.hp = Math.max(0, v.hp - f.n);
+        this.floatText(v.x, v.y, `-${f.n}`, '#ff6b5a');
+        await this.tween(320, (k) => { v.shake = (1 - k) * 0.12 * Math.sin(k * 30); });
+        v.shake = 0;
+        return;
+      }
+      case 'heal': {
+        if (!v) return;
+        v.hp = Math.min(v.maxHp, v.hp + f.n);
+        this.floatText(v.x, v.y, `+${f.n}`, '#7be0a8');
+        await this.tween(300, () => undefined);
+        return;
+      }
+      case 'die': {
+        if (!v) return;
+        await this.tween(320, (k) => { v.alpha = 1 - k; });
+        this.vis.delete(f.who);
+        return;
+      }
+      case 'float':
+        this.floatText(f.at.x, f.at.y, f.text, '#ffd76a');
+        await this.tween(260, () => undefined);
+        return;
+      default:
+    }
+  }
+
+  private async lunge(v: Vis, t: Vis) {
+    const nx = t.x - v.x, ny = t.y - v.y;
+    await this.tween(150, (k) => { v.dx = nx * 0.45 * k; v.dy = ny * 0.45 * k; });
+    await this.tween(130, (k) => { v.dx = nx * 0.45 * (1 - k); v.dy = ny * 0.45 * (1 - k); });
+  }
+
+  private async fly(v: Vis, t: Vis, kind: string) {
+    const s: Shot = { x: v.x, y: v.y, color: SHOT_COLOR[kind] ?? '#fff', size: kind === 'stempel' ? 0.24 : 0.14 };
+    this.shots.push(s);
+    await this.tween(230, (k) => { s.x = v.x + (t.x - v.x) * k; s.y = v.y + (t.y - v.y) * k; });
+    this.shots = this.shots.filter((o) => o !== s);
+  }
+
+  private overlay() {
+    const { ctx, cell: c } = this;
+    const now = performance.now();
+    for (const s of this.shots) {
+      const X = this.px(s.x + 0.5), Y = this.py(s.y + 0.5) - c * 0.3, r = c * s.size;
+      ctx.fillStyle = 'rgba(0,0,0,.5)';
+      ctx.fillRect(X - r - 1, Y - r - 1, r * 2 + 2, r * 2 + 2);
+      ctx.fillStyle = s.color;
+      ctx.fillRect(X - r, Y - r, r * 2, r * 2);
+    }
+    this.floats = this.floats.filter((f) => now - f.start < f.dur);
+    ctx.textAlign = 'center';
+    ctx.lineJoin = 'round';
+    for (const f of this.floats) {
+      const k = (now - f.start) / f.dur;
+      const X = this.px(f.x + 0.5), Y = this.py(f.y) - c * 0.35 - k * c * 0.7;
+      ctx.font = `bold ${Math.max(15, c * 0.48)}px 'Trebuchet MS', system-ui, sans-serif`;
+      ctx.globalAlpha = k > 0.7 ? (1 - k) / 0.3 : 1;
+      ctx.lineWidth = Math.max(3, c * 0.12);
+      ctx.strokeStyle = 'rgba(10,20,28,.9)';
+      ctx.strokeText(f.text, X, Y);
+      ctx.fillStyle = f.color;
+      ctx.fillText(f.text, X, Y);
+    }
+    ctx.globalAlpha = 1;
+  }
+
   private actors(g: Game) {
     const beat = Math.floor(this.time / 420);
     const list: { y: number; draw: () => void }[] = [];
@@ -164,22 +310,29 @@ export class Board {
       const s = this.goalSprite(g), p = g.goal;
       if (s) list.push({ y: p.y, draw: () => place(s, p) });
     }
-    g.monsters.forEach((m, i) => {
-      if (!isActive(g, m)) return;
-      list.push({ y: m.y, draw: () => {
-        place(monsterSprite(m.kind, beat + i), m);
-        if (m.stuck) place(objects.netz(), m);
-        this.bar(m.x, m.y, m.hp / m.maxHp);
+    const active = hkey(activeHero(g));
+    let i = 0;
+    for (const v of this.vis.values()) {
+      const n = i++;
+      const pos = { x: v.x + v.dx + v.shake, y: v.y + v.dy };
+      list.push({ y: v.y, draw: () => {
+        this.ctx.globalAlpha = v.alpha;
+        if (v.hero) {
+          if (v.down) place(heroDown(v.hero, v.gear), pos);
+          else {
+            if (v.key === active && g.status === 'play') this.ring(pos);
+            const walk = 2 + (Math.floor(this.time / 110) % 2);
+            place(heroSprite(v.hero, v.gear, v.walking ? walk : (beat + n) % 2, v.flip), pos);
+          }
+        } else if (v.monster) {
+          const frame = v.walking ? Math.floor(this.time / 110) : beat + n;
+          place(monsterSprite(v.monster, frame, v.flip), pos);
+          if (v.stuck) place(objects.netz(), pos);
+          this.bar(pos.x, pos.y, v.hp / v.maxHp);
+        }
+        this.ctx.globalAlpha = 1;
       } });
-    });
-    const active = activeHero(g);
-    g.heroes.forEach((h, i) => {
-      list.push({ y: h.y, draw: () => {
-        if (h.down) { place(heroDown(h.id, h.gear), h); return; }
-        if (h === active && g.status === 'play') this.ring(h);
-        place(heroSprite(h.id, h.gear, (beat + i) % 2), h);
-      } });
-    });
+    }
     list.sort((a, b) => a.y - b.y).forEach((a) => a.draw());
   }
 
@@ -215,6 +368,7 @@ export class Board {
     }
     this.drawMarks();
     this.actors(g);
+    this.overlay();
   }
 }
 

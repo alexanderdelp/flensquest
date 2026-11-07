@@ -157,10 +157,11 @@ function shop() {
 /* ---------- Spielbrett ---------- */
 
 let view: Board | null = null;
+let busy = false;
 
 function marks(g: Game): Mark[] {
   const out: Mark[] = [];
-  if (g.status !== 'play') return out;
+  if (g.status !== 'play' || busy) return out;
   if (!aiming) {
     for (const k of E.reachable(g).keys()) {
       const [x, y] = k.split(',').map(Number);
@@ -182,6 +183,7 @@ function marks(g: Game): Mark[] {
 function tapTile(p: { x: number; y: number }) {
   const g = game;
   if (!g) return;
+  if (busy) { if (view) view.speed = 5; return; }
   const mark = marks(g).find((m) => m.x === p.x && m.y === p.y);
   if (!mark) return;
   const m = E.monsterAt(g, p.x, p.y);
@@ -197,7 +199,7 @@ const portrait = (o: E.Hero) => toDataUrl(heroSprite(o.id, o.gear, 0));
 
 function panel() {
   const g = game!, ch = CHAPTERS[g.chapter], h = E.activeHero(g), d = HEROES[h.id];
-  const playing = g.status === 'play';
+  const playing = g.status === 'play' && !busy;
   app.querySelector('.top')!.innerHTML = `
     <b>⚓ ${ch.title}</b>
     <span class="punkte" title="Punkte in Flensburg">${Array.from({ length: PUNKTE_LIMIT }, (_, i) => `<i class="${i < g.punkte ? 'on' : ''}"></i>`).join('')} <small>${g.punkte}/${PUNKTE_LIMIT} Punkte</small></span>
@@ -209,7 +211,7 @@ function panel() {
       <img class="dot" alt="" src="${portrait(o)}">
       <span><b>${HEROES[o.id].name}</b><br><small>❤️ ${o.hp}/${o.maxHp} · 🥪 ${o.food} · ✨ ${o.charges}</small></span>
     </div>`).join('')}</div>
-    ${playing ? `<p class="turn"><b>${d.name}</b> · ${'🌊'.repeat(g.tiden)}${g.steps ? ` · 👣 ${g.steps}` : ''}</p>` : '<p class="turn">Der Oberpunktezähler stempelt …</p>'}
+    ${g.status === 'gm' ? '<p class="turn">Der Oberpunktezähler stempelt …</p>' : `<p class="turn"><b>${d.name}</b> · ${'🌊'.repeat(g.tiden)}${g.steps ? ` · 👣 ${g.steps}` : ''}</p>`}
     <div class="actions">
       <button data-search ${playing && g.tiden > 0 ? '' : 'disabled'}>🔎 Suchen</button>
       <button data-eat ${playing && g.tiden > 0 && h.food > 0 && h.hp < h.maxHp ? '' : 'disabled'}>🥪 Essen</button>
@@ -220,7 +222,7 @@ function panel() {
   on('[data-quit]', () => { view?.stop(); view = null; game = null; title(); });
   on('[data-search]', () => { E.search(g); after(); });
   on('[data-eat]', () => { E.eat(g); after(); });
-  on('[data-end]', () => { aiming = false; E.endTurn(g); after(); });
+  on('[data-end]', () => { aiming = false; E.endTurn(g); void after(); });
   on('[data-special]', () => {
     if (E.specialNeedsTarget(g)) { aiming = !aiming; board(); return; }
     E.special(g); after();
@@ -258,28 +260,51 @@ function board() {
     view = new Board(app.querySelector<HTMLCanvasElement>('.board')!, tapTile);
     setupTilt(view);
   }
+  const fresh = view!.game !== g;
   view!.game = g;
+  if (fresh) view!.sync(g);
   view!.marks = marks(g);
   panel();
 }
 
-function after() {
+const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** Spielt alle offenen Ereignisse nacheinander ab. */
+async function drain(g: Game) {
+  const v = view;
+  if (!v) return;
+  while (g.fx.length) await v.play(g.fx.shift()!);
+  v.sync(g);
+}
+
+async function after() {
   const g = game!;
-  if (g.status === 'gm') { board(); runGm(g); return; }
+  busy = true;
+  if (view) view.speed = calm() ? 5 : 1;
+  board();
+  await drain(g);
+  busy = false;
+  if (game !== g) return;
+  if (g.status === 'gm') { await runGm(g); return; }
   if (g.status === 'won' || g.status === 'lost') { result(); return; }
   board();
 }
 
-function runGm(g: Game) {
-  const steps = E.gmTurn(g);
-  const delay = matchMedia('(prefers-reduced-motion: reduce)').matches ? 60 : 450;
-  const tick = () => {
-    const done = steps.next().done;
-    if (g.status === 'won' || g.status === 'lost') { result(); return; }
+async function runGm(g: Game) {
+  busy = true;
+  if (view) view.speed = calm() ? 5 : 1;
+  board();
+  for (const _ of E.gmTurn(g)) {
+    void _;
+    await drain(g);
+    if (game !== g) return;
     board();
-    if (!done) setTimeout(tick, delay);
-  };
-  setTimeout(tick, delay);
+  }
+  await drain(g);
+  busy = false;
+  if (game !== g) return;
+  if (g.status === 'won' || g.status === 'lost') { result(); return; }
+  board();
 }
 
 title();
