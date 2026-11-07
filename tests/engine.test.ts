@@ -203,6 +203,49 @@ function bot(ids: HeroId[], chapter: number, seed: number): 'won' | 'lost' {
   return g.status === 'won' ? 'won' : 'lost';
 }
 
+describe('Spielleiter als Mensch', () => {
+  const start = () => {
+    const c = E.newCampaign(['joern', 'maren'], true);
+    const g = E.startChapter(c, 3);
+    const h = g.heroes[0], m = g.monsters[0];
+    g.seen[m.y][m.x] = true;
+    h.x = m.x + 2; h.y = m.y;
+    E.reveal(g);
+    E.dispatch(g, { type: 'end' }); E.dispatch(g, { type: 'end' });
+    return { g, h, m };
+  };
+
+  it('die Runde wartet auf den Menschen und zieht zwei Karten', () => {
+    const { g } = start();
+    expect(g.status).toBe('gm');
+    expect(g.gmCards).toHaveLength(2);
+    expect(E.dispatch(g, { type: 'gmEnd' })).toBe(false);
+  });
+
+  it('Gegner zieht einmal, greift einmal an, und die Karte beendet die Runde', () => {
+    const { g, h, m } = start();
+    const target = { x: h.x - 1, y: h.y };
+    expect(E.dispatch(g, { type: 'gmMove', uid: m.uid, ...target })).toBe(true);
+    expect(E.dispatch(g, { type: 'gmMove', uid: m.uid, x: m.x - 1, y: m.y })).toBe(false);
+    expect(E.dispatch(g, { type: 'gmAttack', uid: m.uid, hero: h.id })).toBe(true);
+    expect(E.dispatch(g, { type: 'gmAttack', uid: m.uid, hero: h.id })).toBe(false);
+    expect(E.dispatch(g, { type: 'gmCard', index: 1 })).toBe(true);
+    expect(E.dispatch(g, { type: 'gmCard', index: 0 })).toBe(false);
+    expect(E.dispatch(g, { type: 'gmEnd' })).toBe(true);
+    expect(g.status === 'play' || g.status === 'lost').toBe(true);
+  });
+
+  it('Helden-Aktionen sind im Spielleiter-Zug gesperrt', () => {
+    const { g } = start();
+    expect(E.dispatch(g, { type: 'search' })).toBe(false);
+  });
+
+  it('Spielleiter-Rolle bleibt über Kapitel erhalten', () => {
+    const c = E.newCampaign(['joern'], true);
+    expect(E.finishChapter(c, E.startChapter(c, 1)).gmHuman).toBe(true);
+  });
+});
+
 describe('Balance (Bot)', () => {
   it('jedes Kapitel ist für 1 bis 4 Helden gewinnbar', () => {
     const lines: string[] = [];
