@@ -112,8 +112,27 @@ const HERO: Record<HeroId, (p: Painter, f: number, gear: string[]) => void> = {
   },
 };
 
-export function heroSprite(id: HeroId, gear: string[], frame: number, flip = false) {
-  return sprite(`h:${id}:${[...gear].sort().join()}:${frame}`, (p) => HERO[id](p, frame, gear), flip);
+/** Laune nach Lebenspunkten: 0 unversehrt, 1 angeschlagen, 2 schwer angeschlagen. */
+export const moodOf = (hp: number, maxHp: number) => (hp >= maxHp ? 0 : hp * 2 <= maxHp ? 2 : 1);
+
+function moodFace(p: Painter, d: number, mood: number) {
+  if (!mood) return;
+  // finstere Brauen und heruntergezogene Mundwinkel
+  p(11, 7 + d, 2, 1, INK); p(13, 8 + d, 2, 1, INK);
+  p(19, 7 + d, 2, 1, INK); p(17, 8 + d, 2, 1, INK);
+  p(14, 12 + d, 4, 1, '#6b2f22'); p(13, 13 + d, 1, 1, '#6b2f22'); p(18, 13 + d, 1, 1, '#6b2f22');
+  if (mood < 2) return;
+  // blaues Auge, Pflaster und Kopfverband
+  p(17, 9 + d, 4, 3, '#6a4a86'); p(18, 9 + d, 2, 2, INK);
+  p(11, 11 + d, 3, 2, '#f2e6cf'); p(12, 11 + d, 1, 2, '#c9a98a');
+  p(9, 5 + d, 14, 2, '#f4f1e6'); p(21, 5 + d, 3, 1, '#d8d3c4'); p(23, 6 + d, 2, 1, '#d8d3c4');
+}
+
+export function heroSprite(id: HeroId, gear: string[], frame: number, flip = false, mood = 0) {
+  return sprite(`h:${id}:${[...gear].sort().join()}:${frame}:${mood}`, (p) => {
+    HERO[id](p, frame, gear);
+    moodFace(p, frame === 1 ? 1 : 0, mood);
+  }, flip);
 }
 
 export function heroDown(id: HeroId, gear: string[]) {
@@ -266,6 +285,12 @@ export const objects = {
   }),
   gummistiefel: () => sprite('o:stiefel', (p) => {
     p(11, 6, 8, 18, '#2e8b57'); p(11, 22, 15, 5, '#2e8b57'); p(11, 27, 16, 2, '#1d5c39'); p(11, 6, 8, 2, '#57b47f');
+  }),
+  wolke: (f: number) => sprite(`o:wolke:${f % 2}`, (p) => {
+    p(9, 12, 15, 7, '#4b5563'); p(6, 14, 22, 6, '#5d6775'); p(12, 9, 9, 5, '#6d7786');
+    p(11, 21, 2, 3, '#7fb7d9'); p(18, 21, 2, 3, '#7fb7d9');
+    if (f % 2) { p(15, 21, 2, 4, '#ffd76a'); p(14, 25, 2, 3, '#ffd76a'); }
+    else { p(14, 21, 2, 3, '#7fb7d9'); p(22, 21, 2, 3, '#7fb7d9'); }
   }),
   lanterne: (f: number) => sprite(`o:lanterne:${f % 2}`, (p) => {
     p(12, 8, 8, 2, '#2b2b35'); p(13, 10, 6, 10, '#2b2b35');

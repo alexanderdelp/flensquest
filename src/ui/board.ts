@@ -3,7 +3,7 @@ import type { Fx, Game, Pos } from '../game/engine';
 import { activeHero, chestAt, hkey, isActive, mkey } from '../game/engine';
 import { HEROES, MONSTERS, type HeroId, type MonsterId } from '../game/data';
 import {
-  SPRITE, THEMES, floorTile, heroDown, heroSprite, monsterSprite, objects, wallFace, wallTop,
+  SPRITE, THEMES, floorTile, heroDown, heroSprite, monsterSprite, moodOf, objects, wallFace, wallTop,
 } from './sprites';
 
 export interface Mark extends Pos { kind: 'walk' | 'use' | 'foe'; act: string }
@@ -335,7 +335,9 @@ export class Board {
           else {
             if (v.key === active && g.status === 'play') this.ring(pos);
             const walk = 2 + (Math.floor(this.time / 110) % 2);
-            place(heroSprite(v.hero, v.gear, v.walking ? walk : (beat + n) % 2, v.flip), pos);
+            const mood = moodOf(v.hp, v.maxHp);
+            place(heroSprite(v.hero, v.gear, v.walking ? walk : (beat + n) % 2, v.flip, mood), pos);
+            if (mood === 2) place(objects.wolke(beat + n), { x: pos.x, y: pos.y - 0.85 });
           }
         } else if (v.monster) {
           const frame = v.walking ? Math.floor(this.time / 110) : beat + n;

@@ -4,7 +4,7 @@ import * as E from './game/engine';
 import type { Campaign, Game } from './game/engine';
 import { LocalTransport } from './net/transport';
 import { Board, type Mark } from './ui/board';
-import { heroSprite, objects, toDataUrl } from './ui/sprites';
+import { heroSprite, moodOf, objects, toDataUrl } from './ui/sprites';
 
 const SAVE = 'flensquest:v1';
 const ANGLE = 'flensquest:winkel';
@@ -237,7 +237,7 @@ net.onMessage((msg) => {
 
 function act(action: E.Action) { net.send({ kind: 'request', device: DEVICE, action }); }
 
-const portrait = (o: E.Hero) => toDataUrl(heroSprite(o.id, o.gear, 0));
+const portrait = (o: E.Hero) => toDataUrl(heroSprite(o.id, o.gear, 0, false, moodOf(o.hp, o.maxHp)));
 
 function panel() {
   const g = game!, ch = CHAPTERS[g.chapter], h = E.activeHero(g), d = HEROES[h.id];
