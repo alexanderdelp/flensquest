@@ -289,9 +289,10 @@ export class Board {
   private drawDoor(g: Game, x: number, y: number) {
     const northSouth = this.solid(g, x - 1, y) && this.solid(g, x + 1, y);
     const open = g.tiles[y][x] === 'O';
-    const leaf = { h: DOOR, top: '#5c3a1c', side: '#7c4d26' };
+    // Das Blatt ist so hoch wie die Wand und reicht von Wand zu Wand, ohne Spalt und ohne Seiten in der Mauer.
+    const leaf = { h: WALL, top: '#5c3a1c', side: '#7c4d26' };
     if (!open) {
-      if (northSouth) this.box({ ...leaf, x0: x + 0.02, y0: y + 0.42, x1: x + 0.98, y1: y + 0.58, front: objects.door() });
+      if (northSouth) this.box({ ...leaf, x0: x, y0: y + 0.42, x1: x + 1, y1: y + 0.58, front: objects.door(), culled: { e: true, w: true, s: false } });
       else this.box({ ...leaf, x0: x + 0.42, y0: y + 0.02, x1: x + 0.58, y1: y + 0.98, front: null });
     } else if (northSouth) {
       this.box({ ...leaf, x0: x + 0.03, y0: y + 0.08, x1: x + 0.13, y1: y + 0.92, front: null });
@@ -568,10 +569,11 @@ export class Board {
     };
   }
 
-  private drawPiet(v: Vis, pos: Pos) {
+  /** step: Schulterwechsel fortschreiben; beim zweiten Zeichnen im selben Bild nicht. */
+  private drawPiet(v: Vis, pos: Pos, step = true) {
     if (v.away || v.down) return;
     const want = v.flip ? -1 : 1;
-    v.side = v.side === undefined ? want : v.side + Math.sign(want - v.side) * Math.min(Math.abs(want - v.side), 0.08);
+    if (step) v.side = v.side === undefined ? want : v.side + Math.sign(want - v.side) * Math.min(Math.abs(want - v.side), 0.08);
     const q = this.pietAt(v, pos);
     this.ctx.drawImage(piet(q.frame, q.flip), q.x - q.size / 2, q.y - q.size / 2, q.size, q.size);
   }
@@ -676,7 +678,14 @@ export class Board {
     // Figuren hinter Wänden bleiben schwach sichtbar.
     actors.forEach((v, n) => {
       const south = g.tiles[Math.round(v.y) + 1]?.[Math.round(v.x)];
-      if (south === '#' || south === 'H' || south === 'D') this.drawActor(g, v, n, true);
+      if (south !== '#' && south !== 'H' && south !== 'D') return;
+      this.drawActor(g, v, n, true);
+      // Piet sitzt oder fliegt über der Wandkante und bleibt deckend sichtbar.
+      if (v.hero === 'nordhexe') {
+        this.ctx.globalAlpha = v.alpha;
+        this.drawPiet(v, { x: v.x + v.dx + v.shake, y: v.y + v.dy }, false);
+        this.ctx.globalAlpha = 1;
+      }
     });
   }
 
