@@ -2,6 +2,7 @@ import './ui/style.css';
 import { CHAPTERS, EVENTS, HEROES, MONSTERS, PUNKTE_LIMIT, SHOP, type HeroId } from './game/data';
 import * as E from './game/engine';
 import type { Campaign, Game } from './game/engine';
+import { LocalTransport } from './net/transport';
 import { Board, type Mark } from './ui/board';
 import { heroSprite, objects, toDataUrl } from './ui/sprites';
 
@@ -226,10 +227,15 @@ function tapTile(p: { x: number; y: number }) {
   if (mark.act === 'special' && m) { aiming = false; act({ type: 'special', uid: m.uid }); }
 }
 
-function act(a: E.Action) {
-  if (!game || busy || !E.dispatch(game, a)) return;
+/* Alle Handlungen laufen über die Verbindung, heute lokal, später zwischen Geräten. */
+const DEVICE = 'dieses-geraet';
+const net = new LocalTransport();
+net.onMessage((msg) => {
+  if (msg.kind !== 'request' || !game || busy || !E.dispatch(game, msg.action)) return;
   void after();
-}
+});
+
+function act(action: E.Action) { net.send({ kind: 'request', device: DEVICE, action }); }
 
 const portrait = (o: E.Hero) => toDataUrl(heroSprite(o.id, o.gear, 0));
 

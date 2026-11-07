@@ -3,7 +3,7 @@
 Eigenständiges Browser-Dungeonspiel mit Flensburg-Humor (Vite, TypeScript, kein Framework). Details stehen in `README.md`.
 
 ## Spielkontext
-Kooperatives Keller-Abenteuer für 1 bis 4 Figuren an einem Gerät, reihum. Der Rechner ist der Spielleiter und spielt als Oberpunktezähler gegen die Gruppe. Die Geschichte führt in fünf Kapiteln von der Hafenspitze über Rote Straße, Nordertor und Museumsberg ins Punktearchiv.
+Kooperatives Keller-Abenteuer für 1 bis 4 Figuren an einem Gerät, reihum. Den Spielleiter spielt wahlweise der Rechner oder ein Mensch; er tritt als Oberpunktezähler gegen die Gruppe an. Die Geschichte führt in fünf Kapiteln von der Hafenspitze über Rote Straße, Nordertor und Museumsberg ins Punktearchiv.
 
 Ausgangspunkt war der Wunsch nach einem Spiel im Stil klassischer Dungeon-Brettspiele. **FlensQuest ist aber keine Nachbildung eines bestehenden Spiels:** Regeln, Figuren, Gegner, Karten, Texte und Grafik bleiben eigenständig. Nichts aus einem konkreten Spiel übernehmen.
 
@@ -20,12 +20,16 @@ Ausgangspunkt war der Wunsch nach einem Spiel im Stil klassischer Dungeon-Bretts
 - **Verlieren:** Eine Niederlage ist nie endgültig. Das Kapitel beginnt von vorn, nur die Öre aus dem Versuch sind weg.
 
 ## Technik und Oberfläche
-- **Trennung:** Regeln und Spielleiter liegen in `src/game/engine.ts` ohne DOM-Zugriff, Inhalte in `src/game/data.ts`, die Oberfläche in `src/main.ts`. Zufall läuft über den Seed im Spielzustand, damit Tests reproduzierbar bleiben.
-- **Spielleiter:** `gmTurn` ist ein Generator, damit die Oberfläche jeden Gegnerzug einzeln zeigt.
+- **Trennung:** Regeln und Spielleiter liegen in `src/game/engine.ts` ohne DOM-Zugriff, Inhalte in `src/game/data.ts`, die Oberfläche in `src/main.ts`, das Brett in `src/ui/board.ts`, die Grafik in `src/ui/sprites.ts`. Zufall läuft über den Seed im Spielzustand, damit Tests reproduzierbar bleiben.
+- **Spielleiter:** `gmTurn` ist ein Generator, damit die Oberfläche jeden Gegnerzug einzeln zeigt. Ein menschlicher Spielleiter zieht Gegner einzeln und spielt eine von zwei Karten.
+- **Handlungen:** Alles läuft als serialisierbare `Action` über `dispatch` und `src/net/transport.ts`. Neue Handlungen nur dort ergänzen, damit das Spiel zwischen Geräten lauffähig bleibt. Die Engine meldet Sichtbares über `g.fx`; das steuert Animationen und Meldungen, nie die Regeln.
 - **Bedienung:** Alles läuft per Klick oder Tippen auf dem Brett, ohne Tastatur. Mögliche Ziele sind markiert: grün zum Gehen, gold für Türen und Truhen, rot für Gegner. Aktionsknöpfe mindestens 44 px hoch.
 - **Layout:** Die Spielansicht passt ab 821 px Breite ohne Seiten-Scrollen auf den Bildschirm. Darunter stehen Brett und Seitenleiste untereinander.
-- **Optik:** Farben der Förde, Backstein und Sand als CSS-Variablen in `src/ui/style.css`. Spielsteine sind vorerst Emojis und dürfen durch eigene Grafik ersetzt werden.
-- **Betrieb:** Statische Seite ohne Server und ohne externe Anfragen zur Laufzeit. Der Spielstand liegt nur in `localStorage`, Schlüssel `flensquest:v1`.
+- **Optik:** Farben der Förde, Backstein und Sand als CSS-Variablen in `src/ui/style.css`. Alle Grafiken sind eigene Pixel-Art im 32er-Raster, im Code gezeichnet. Ausrüstung muss an der Figur sichtbar sein.
+- **Ansicht:** Canvas-Brett, Blickwinkel per Regler 35 bis 90 Grad. Wände bleiben im eigenen Feld, damit nichts verdeckt wird; Figuren stehen aufrecht.
+- **Meldungen:** Was der Spielleiter tut, steht auf dem Brett (Zeile, Banner, Rundenrückblick). Niemand soll dafür den Verlauf lesen müssen.
+- **Zielgeräte:** PC und iPad haben Vorrang. Das iPhone soll spielbar sein, darf aber keine Designentscheidung zulasten der anderen bestimmen.
+- **Betrieb:** Statische Seite ohne Server und ohne externe Anfragen zur Laufzeit. Für mehrere Geräte siehe `docs/mehrgeraete.md`. Der Spielstand liegt nur in `localStorage`, Schlüssel `flensquest:v1`.
 - **Veröffentlichung:** Jeder Push auf `main` testet, baut und veröffentlicht auf https://alexanderdelp.github.io/flensquest/ (`.github/workflows/deploy.yml`). `base` bleibt relativ.
 
 ## Befehle
@@ -40,6 +44,7 @@ Der Mensch bekommt über einen eigenen Bot Updates und beantwortet Fragen (`npm 
 - **Pflicht:** Wenn eine Aufgabe fertig ist oder dringend Input gebraucht wird, unaufgefordert über den Bot melden, auch wenn die Antwort zusätzlich im Chat steht.
 - **Fertig:** Update mit Screenshot per `photo`. Zeigt die Aufgabe nichts Sichtbares, reicht `send`.
 - **Dringender Input:** `ask` mit Knöpfen, dazu ein Screenshot, wenn er die Frage erklärt. Kleinigkeiten nicht melden.
+- Aufruf direkt mit `node tools/telegram.mjs …`; über `npm run` geht `--wait` verloren.
 - `send`: kurzes Update ohne Bild.
 - `photo <datei> [text]`: Screenshot aus dem Spiel, nur mit Testdaten.
 - `ask`: Entscheidungsfrage mit Knöpfen; Antwort mit `--wait` oder später mit `inbox`.

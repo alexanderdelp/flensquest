@@ -1,6 +1,6 @@
 # ⚓ FlensQuest
 
-Ein augenzwinkerndes Keller-Abenteuer aus Flensburg für den Browser: 1 bis 4 Figuren an einem Gerät, den Spielleiter übernimmt der Rechner.
+Ein augenzwinkerndes Keller-Abenteuer aus Flensburg für den Browser: 1 bis 4 Figuren an einem Gerät, den Spielleiter übernimmt der Rechner oder ein Mensch.
 FlensQuest ist ein eigenständiges Spiel mit eigenen Regeln, Figuren und Kapiteln und steht in keiner Verbindung zu anderen Spielen oder Marken.
 
 ## Starten
@@ -37,8 +37,8 @@ npm run build
 `tools/telegram.mjs` schickt Updates, Screenshots und Fragen über einen eigenen Bot. Die Zugangsdaten liegen außerhalb des Repositorys in `~/.config/flensquest/telegram.env` und werden nie committet.
 
 ```bash
-npm run telegram -- send "Text"
-npm run telegram -- photo bild.png "Text"
-npm run telegram -- ask "Frage?" Ja Nein --wait 300
-npm run telegram -- inbox
+node tools/telegram.mjs send "Text"
+node tools/telegram.mjs photo bild.png "Text"
+node tools/telegram.mjs ask "Frage?" Ja Nein --wait 300
+node tools/telegram.mjs inbox
 ```
