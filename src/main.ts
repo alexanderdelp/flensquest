@@ -11,6 +11,7 @@ import { heroSprite, moodOf, objects, toDataUrl } from './ui/sprites';
 const SAVE = 'flensquest:v1';
 const ANGLE = 'flensquest:winkel';
 const app = document.querySelector<HTMLDivElement>('#app')!;
+const LOGO = '<img class="logo" src="img/schriftzug.webp" alt="FlensQuest">';
 
 let campaign: Campaign | null = load();
 let game: Game | null = null;
@@ -54,7 +55,8 @@ function title() {
   const def = campaignById(campaign?.campaign);
   const hasSave = campaign && campaign.chapter < def.chapters.length;
   html(`<main class="screen title">
-    <h1>⚓ FlensQuest</h1>
+    <h1 class="sr">FlensQuest</h1>
+    <img class="cover" src="img/titelbild.webp" alt="Titelbild: vier Abenteurer im Kellergewölbe am Flensburger Hafen">
     <p class="lead">Ein Kellerabenteuer zwischen Hafenspitze und Punktearchiv.<br>Für 1 bis 4 Figuren an einem Gerät. Den Spielleiter spielt der Rechner oder ein Mensch.</p>
     <div class="row">
       <button class="primary" data-new>Neues Abenteuer</button>
@@ -76,10 +78,12 @@ function title() {
 
 function choose() {
   html(`<main class="screen">
+    ${LOGO}
     <h2>Welches Abenteuer soll es sein?</h2>
     <div class="cards campaigns">${CAMPAIGNS.map((c) => `<button class="card" data-campaign="${c.id}"
         data-say="${c.title}. ${c.chapters.length} Kapitel. ${c.blurb}">
-      <b>${c.title}</b><small>${c.chapters.length} Kapitel</small><small>${c.blurb}</small>
+      <img class="cimg" src="${c.image}" alt="${c.title}">
+      <small><b>${c.chapters.length} Kapitel</b> · ${c.blurb}</small>
     </button>`).join('')}</div>
     <div class="row"><button data-back>Zurück</button></div>
   </main>`);
@@ -90,6 +94,7 @@ function choose() {
 function pick() {
   const ids = Object.keys(HEROES) as HeroId[];
   html(`<main class="screen">
+    ${LOGO}
     <h2>Wer geht mit in den Keller?</h2>
     <p class="lead">Wähle 1 bis 4 von 5 Figuren. Allein bekommst du eine Tide und 4 Lebenspunkte extra.</p>
     <div class="cards">${ids.map((id) => {
@@ -132,6 +137,7 @@ function campaignIntro() {
   const def = campaignById(campaign!.campaign);
   if (!def.intro) { chapterIntro(); return; }
   html(`<main class="screen narrow">
+    ${LOGO}
     <p class="kicker">Neue Kampagne</p>
     <h2>${def.title}</h2>
     <p class="story">${def.intro}</p>
@@ -144,6 +150,7 @@ function campaignIntro() {
 function chapterIntro() {
   const c = campaign!, chapters = campaignById(c.campaign).chapters, ch = chapters[c.chapter];
   html(`<main class="screen narrow">
+    ${LOGO}
     <p class="kicker">Kapitel ${c.chapter + 1} von ${chapters.length} · ${ch.place}</p>
     <h2>${ch.title}</h2>
     <p class="story">${ch.intro}</p>
@@ -168,6 +175,7 @@ function result() {
   play(g.status === 'lost' ? 'lose' : 'win');
   if (g.status === 'lost') {
     html(`<main class="screen narrow">
+      ${LOGO}
       <h2>Das war nix</h2>
       <p class="story">${g.lostReason}</p>
       ${def.lostText ? `<p>${def.lostText}</p>` : ''}
@@ -183,7 +191,8 @@ function result() {
   save();
   if (campaign.chapter >= def.chapters.length) {
     html(`<main class="screen narrow">
-      <h2>⚓ Flensburg ist gerettet</h2>
+      ${LOGO}
+      <h2>Flensburg ist gerettet</h2>
       <p class="story">${ch.outro}</p>
       ${def.epilog ? `<p class="story">${def.epilog}</p>` : ''}
       <p>Eure Kasse: ${campaign.oere} Öre. Ein Fischbrötchen geht aufs Haus.</p>
@@ -194,6 +203,7 @@ function result() {
     return;
   }
   html(`<main class="screen narrow">
+    ${LOGO}
     <h2>Geschafft!</h2>
     <p class="story">${ch.outro}</p>
     <p>Belohnung: ${ch.reward} Öre.</p>
@@ -207,6 +217,7 @@ function result() {
 function shop() {
   const c = campaign!;
   html(`<main class="screen">
+    ${LOGO}
     <h2>🛒 Hafenkiosk</h2>
     <p class="lead">Kasse: <b>${c.oere} Öre</b></p>
     <div class="shop">${c.heroes.map((h) => `<section class="shelf">
@@ -322,7 +333,7 @@ function panel() {
   const g = game!, ch = E.chapterOf(g);
   const playing = g.status === 'play' && !busy;
   app.querySelector('.top')!.innerHTML = `
-    <b>⚓ ${ch.title}</b>
+    <span class="brand"><img class="logo mini" src="img/schriftzug.webp" alt="FlensQuest"><b>${ch.title}</b></span>
     <span class="punkte" title="Punkte in Flensburg">${Array.from({ length: PUNKTE_LIMIT }, (_, i) => `<i class="${i < g.punkte ? 'on' : ''}"></i>`).join('')} <small>${g.punkte}/${PUNKTE_LIMIT} Punkte</small></span>
     <span>Runde ${g.round} · ${g.oere} Öre</span>
     <button class="mini" data-quit>Menü</button>`;
