@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyZoom, makeView, panLimit, project, unproject } from '../src/ui/projection';
+import { applyZoom, makeView, panLimit, project, unproject } from '../../src/ui/projection';
 
 describe('Kamera', () => {
   it('Bodenpunkte lassen sich aus Bildschirmkoordinaten zurückrechnen', () => {

@@ -25,7 +25,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - run: npm run test:balance
       - run: npm run build
+      # E2E mit dem vorinstallierten Chrome des Runners; Playwright lädt keine Browser.
+      - run: npm run test:e2e
+        env:
+          CI: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

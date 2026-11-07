@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { campaignById, CAMPAIGNS } from '../src/game/campaigns';
-import { MONSTERS, type HeroId } from '../src/game/data';
-import * as E from '../src/game/engine';
+import { campaignById, CAMPAIGNS } from '../../src/game/campaigns';
+import { MONSTERS, type HeroId } from '../../src/game/data';
+import * as E from '../../src/game/engine';
 
 const AKTE = campaignById('akte');
 const start = (ids: HeroId[], chapter: number, seed = 1) => {

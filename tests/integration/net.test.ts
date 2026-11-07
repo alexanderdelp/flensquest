@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import * as E from '../src/game/engine';
-import { LocalTransport, allowed, snapshot, type NetMessage, type Seat } from '../src/net/transport';
+import * as E from '../../src/game/engine';
+import { LocalTransport, allowed, snapshot, type NetMessage, type Seat } from '../../src/net/transport';
 
 const start = (gm = false) => E.startChapter(E.newCampaign(['frauke', 'joern'], gm), 42);
 const clean = (g: E.Game) => JSON.stringify({ ...g, fx: [] });

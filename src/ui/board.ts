@@ -243,6 +243,12 @@ export class Board {
     return x >= 0 && y >= 0 && x < g.w && y < g.h ? { x, y } : null;
   }
 
+  /** Punkt in Canvas-Pixeln, für Tests und Bildprüfungen. */
+  canvasPoint(x: number, y: number, z = 0) {
+    if (this.game) this.layout(this.game);
+    return this.p(x, y, z);
+  }
+
   /** Bildschirmmitte eines Felds in CSS-Pixeln, für Tests. */
   screenOf(x: number, y: number) {
     if (this.game) this.layout(this.game);
