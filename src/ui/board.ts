@@ -193,7 +193,7 @@ export class Board {
     });
   }
 
-  private floatText(x: number, y: number, text: string, color: string, dur = 1100) {
+  private floatText(x: number, y: number, text: string, color: string, dur = 2200) {
     this.floats.push({ x, y, text, color, start: performance.now(), dur: dur / this.speed });
   }
 
@@ -229,10 +229,10 @@ export class Board {
         if (target.x !== v.x) v.flip = target.x < v.x;
         if (f.shot) await this.fly(v, target, f.shot);
         else await this.lunge(v, target);
-        if (f.t === 'attack' && f.a) this.floatText(v.x, v.y - 0.3, `🎲 ${f.a}+${f.b}`, '#fff2c0', 900);
+        if (f.t === 'attack' && f.a) this.floatText(v.x, v.y - 0.3, `🎲 ${f.a}+${f.b}`, '#fff2c0', 2000);
         if (f.t === 'attack' && !f.hit) {
           this.floatText(target.x, target.y, 'daneben', '#d7e3e8');
-          await this.tween(300, () => undefined);
+          await this.tween(800, () => undefined);
         }
         return;
       }
@@ -248,7 +248,7 @@ export class Board {
         if (!v) return;
         v.hp = Math.min(v.maxHp, v.hp + f.n);
         this.floatText(v.x, v.y, `+${f.n}`, '#7be0a8');
-        await this.tween(300, () => undefined);
+        await this.tween(800, () => undefined);
         return;
       }
       case 'die': {
@@ -259,7 +259,7 @@ export class Board {
       }
       case 'float':
         this.floatText(f.at.x, f.at.y, f.text, '#ffd76a');
-        await this.tween(260, () => undefined);
+        await this.tween(900, () => undefined);
         return;
       default:
     }

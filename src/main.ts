@@ -367,7 +367,7 @@ async function announce(f: E.Fx, g: Game, v: Board) {
   if (f.t === 'card') {
     recap.push(`📜 ${f.name}: ${f.text}`);
     setBox('.banner', `<small>Ereigniskarte</small><b>${f.name}</b><span>${f.text}</span>`);
-    await v.pause(2200);
+    await v.pause(4500);
     setBox('.banner', null);
     return;
   }
@@ -375,7 +375,7 @@ async function announce(f: E.Fx, g: Game, v: Board) {
     recap.push(`🔴 ${f.why || 'Punkt'}: +${f.n}, jetzt ${f.total} von ${PUNKTE_LIMIT}`);
     setBox('.banner', `<small>Punkte in Flensburg</small><b>+${f.n} · ${f.total} von ${PUNKTE_LIMIT}</b><span>${f.why}</span>`);
     panel();
-    await v.pause(1500);
+    await v.pause(3200);
     setBox('.banner', null);
     return;
   }
@@ -394,7 +394,7 @@ async function drain(g: Game) {
     const f = g.fx.shift()!;
     await announce(f, g, v);
     await v.play(f);
-    if (f.t === 'attack' && g.status === 'gm') await v.pause(500);
+    if (f.t === 'attack' && g.status === 'gm') await v.pause(1800);
   }
   v.sync(g);
 }
