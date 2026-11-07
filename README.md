@@ -38,11 +38,11 @@ npm run build
 - **Punkte in Flensburg:** Fallen, Knöllchen, gestürzte Figuren und der Stempel jede vierte Runde bringen Punkte. Bei 8 ist der Lappen weg und das Kapitel verloren.
 - **Spielleiter:** Er hat eine Hand aus Karten und bezahlt sie mit Stempeltinte: 2 zum Start, 2 mehr je Runde, höchstens 8. Jede Runde kommt eine Karte dazu, höchstens 5 auf der Hand. Karten kosten 2 bis 6 Tinte: Eile, härtere Schläge, Gegner flicken, Schietwetter, Verstärkung, verdeckte Fallen, Fischbrötchen klauen, Schlick oder ein Punkt in Flensburg. Rechner und Mensch spielen nach denselben Regeln.
 - **Hafenkiosk:** Zwischen den Kapiteln gibt es Friesennerz, Bootshaken, Gummistiefel, Katzenohren und Fischbrötchen für Öre.
-- **Ansicht:** Blickwinkel per Regler, Zoom per Knöpfen, Mausrad oder zwei Fingern.
+- **Bedienung:** Tippen oder Klicken aufs Brett; am PC laufen auch die Pfeiltasten. Zoom per Knöpfen, Mausrad oder zwei Fingern.
 
 ## Ton
 
-Geräusche und das Ambiente erzeugt der Browser selbst, es gibt keine Audiodateien. Die Sprachausgabe nutzt die deutsche Stimme des Geräts. Rechts unten lassen sich Geräusche, Ambiente und Sprache einzeln schalten, 📖 liest die aktuelle Ansicht vor. Der Klang startet nach dem ersten Tippen.
+Geräusche und das Ambiente erzeugt der Browser selbst, es gibt keine Audiodateien. Die Sprachausgabe nutzt die deutsche Stimme des Geräts und liest nur die Questtexte: zu Kampagnenbeginn, vor jedem Kapitel und an seinem Ende. Rechts unten lassen sich Geräusche, Ambiente und Sprache einzeln schalten, 📖 liest die aktuelle Ansicht vor. Der Klang startet nach dem ersten Tippen.
 
 ## Aufbau
 

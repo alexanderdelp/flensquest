@@ -9,7 +9,6 @@ import { Board, type Mark } from './ui/board';
 import { heroSprite, moodOf, objects, toDataUrl } from './ui/sprites';
 
 const SAVE = 'flensquest:v1';
-const ANGLE = 'flensquest:winkel';
 const app = document.querySelector<HTMLDivElement>('#app')!;
 const LOGO = '<img class="logo" src="img/schriftzug.webp" alt="FlensQuest">';
 
@@ -49,6 +48,12 @@ function readScreen() {
   void say(parts.join('. '));
 }
 
+/** Liest Questtexte vor: Kampagnenstart, Kapitelbeginn und Kapitelende. Sonst schweigt die Stimme. */
+function tell(...texts: (string | undefined)[]) {
+  hush();
+  void say(texts.filter(Boolean).join(' '));
+}
+
 /* ---------- Bildschirme ---------- */
 
 function title() {
@@ -72,7 +77,7 @@ function title() {
       </ul>
     </section>
   </main>`);
-  on('[data-new]', () => { picked = []; choose(); readScreen(); });
+  on('[data-new]', () => { picked = []; choose(); });
   on('[data-go]', () => chapterIntro());
 }
 
@@ -88,7 +93,7 @@ function choose() {
     <div class="row"><button data-back>Zurück</button></div>
   </main>`);
   on('[data-back]', title);
-  on('[data-campaign]', (el) => { chosen = el.dataset.campaign!; pick(); readScreen(); });
+  on('[data-campaign]', (el) => { chosen = el.dataset.campaign!; pick(); });
 }
 
 function pick() {
@@ -124,9 +129,6 @@ function pick() {
     const adding = !picked.includes(id);
     picked = adding ? [...picked, id] : picked.filter((p) => p !== id);
     pick();
-    hush();
-    const d = HEROES[id];
-    void say(adding ? `${d.name}, ${d.title}. ${d.special}: ${d.specialText}` : `${d.name} bleibt an Land.`);
   });
   on('[data-back]', choose);
   on('[data-gm]', (el) => { gmHuman = el.dataset.gm === '1'; pick(); });
@@ -143,7 +145,7 @@ function campaignIntro() {
     <p class="story">${def.intro}</p>
     <button class="primary" data-go>Akte öffnen</button>
   </main>`);
-  readScreen();
+  tell(def.title, def.intro);
   on('[data-go]', chapterIntro);
 }
 
@@ -158,14 +160,12 @@ function chapterIntro() {
     <p class="goal"><b>Ziel:</b> ${ch.goalText}</p>
     <button class="primary" data-go>Rein da</button>
   </main>`);
-  readScreen();
+  tell(`Kapitel ${c.chapter + 1}: ${ch.title}.`, ch.intro, ch.situation, `Ziel: ${ch.goalText}`);
   on('[data-go]', () => {
     hush();
     game = E.startChapter(c);
     aiming = false;
-    spoken = 0;
     board();
-    speakLog(game);
   });
 }
 
@@ -183,7 +183,7 @@ function result() {
       ${def.retryText ? `<p>${def.retryText}</p>` : ''}
       <button class="primary" data-retry>Nochmal</button>
     </main>`);
-    readScreen();
+    tell(g.lostReason, def.lostText, def.retryText);
     on('[data-retry]', chapterIntro);
     return;
   }
@@ -198,7 +198,7 @@ function result() {
       <p>Eure Kasse: ${campaign.oere} Öre. Ein Fischbrötchen geht aufs Haus.</p>
       <button class="primary" data-end>Zum Anfang</button>
     </main>`);
-    readScreen();
+    tell(ch.outro, def.epilog);
     on('[data-end]', () => { campaign = null; save(); title(); });
     return;
   }
@@ -210,8 +210,8 @@ function result() {
     ${ch.bridge ? `<p class="goal">${ch.bridge}</p>` : ''}
     <button class="primary" data-go>Zum Hafenkiosk</button>
   </main>`);
-  readScreen();
-  on('[data-go]', () => { shop(); readScreen(); });
+  tell(ch.outro, ch.bridge);
+  on('[data-go]', () => { hush(); shop(); });
 }
 
 function shop() {
@@ -237,8 +237,6 @@ function shop() {
     const it = SHOP.find((s) => s.id === item)!;
     if (E.buy(c, id as HeroId, it)) {
       play('coin');
-      hush();
-      void say(`${HEROES[id as HeroId].name} kauft ${it.name}. Noch ${c.oere} Öre.`);
     }
     save();
     shop();
@@ -253,7 +251,6 @@ let busy = false;
 let logOpen = false;
 let recap: string[] = [];
 let gmOpen = false;
-let spoken = 0;
 
 function gmMarks(g: Game): Mark[] {
   const out: Mark[] = [];
@@ -427,19 +424,6 @@ function setupZoom(b: Board) {
 
 let lastTurn = '';
 
-function setupTilt(b: Board) {
-  const input = app.querySelector<HTMLInputElement>('[data-tilt]')!;
-  const label = app.querySelector<HTMLElement>('[data-angle]')!;
-  const apply = (v: number) => { b.angle = v; input.value = String(v); label.textContent = `${v}°`; };
-  let stored = 55;
-  try { stored = Number(localStorage.getItem(ANGLE)) || 55; } catch { /* Speichern ist optional */ }
-  apply(Math.min(90, Math.max(35, stored)));
-  input.addEventListener('input', () => {
-    apply(Number(input.value));
-    try { localStorage.setItem(ANGLE, input.value); } catch { /* Speichern ist optional */ }
-  });
-}
-
 function board() {
   const g = game!;
   if (!app.querySelector('.game')) {
@@ -457,15 +441,12 @@ function board() {
             <button data-zoom="out" aria-label="Herauszoomen" title="Herauszoomen">－</button>
             <button data-zoom="reset" aria-label="Ganze Karte" title="Ganze Karte">⤢</button>
           </div>
-          <label class="tilt"><span>Blick <b data-angle></b></span>
-            <input type="range" min="35" max="90" step="5" data-tilt aria-label="Blickwinkel"></label>
         </div>
         <aside class="side"></aside>
       </div>
     </main>`);
     view = new Board(app.querySelector<HTMLCanvasElement>('.board')!, tapTile);
     if (import.meta.env.DEV) (window as unknown as { board: Board }).board = view;
-    setupTilt(view);
     setupZoom(view);
     view.onStep = () => play('step');
   }
@@ -504,13 +485,6 @@ function describe(f: E.Fx, v: Board): string | null {
   return null;
 }
 
-/** Liest neue Einträge des Verlaufs vor. */
-function speakLog(g: Game) {
-  const lines = g.log.slice(spoken);
-  spoken = g.log.length;
-  lines.filter((l) => !l.startsWith('📍')).forEach((l) => { void say(l); });
-}
-
 function fxSound(f: E.Fx, v: Board) {
   if (f.t === 'attack') {
     play(v.label(f.who) === 'Pommes-Möwe' || f.shot === 'nordhexe' ? 'gull' : f.shot ? 'shot' : 'swing');
@@ -525,34 +499,27 @@ function fxSound(f: E.Fx, v: Board) {
   if (f.t === 'punkte') play('stamp');
 }
 
-let speaking: Promise<void> = Promise.resolve();
-
 async function announce(f: E.Fx, g: Game, v: Board) {
   const gm = g.status === 'gm';
-  const voiced = gm && !g.gmHuman;
-  speaking = Promise.resolve();
   if (f.t === 'card') {
-    const line = voiced ? say(`${f.name}. ${f.text}`) : Promise.resolve();
     recap.push(`📜 ${f.name}: ${f.text}`);
     setBox('.banner', `<small>Spielleiter spielt · ${f.cost} Tinte</small><b>${f.name}</b><span>${f.text}</span>`);
-    await Promise.all([v.pause(4500), line]);
+    await v.pause(4500);
     setBox('.banner', null);
     return;
   }
   if (f.t === 'punkte') {
-    const line = voiced ? say(`Plus ${f.n}. ${f.total} von ${PUNKTE_LIMIT} Punkten. ${f.why}`) : Promise.resolve();
     recap.push(`🔴 ${f.why || 'Punkt'}: +${f.n}, jetzt ${f.total} von ${PUNKTE_LIMIT}`);
     setBox('.banner', `<small>Punkte in Flensburg</small><b>+${f.n} · ${f.total} von ${PUNKTE_LIMIT}</b><span>${f.why}</span>`);
     panel();
-    await Promise.all([v.pause(3200), line]);
+    await v.pause(3200);
     setBox('.banner', null);
     return;
   }
   if (f.t === 'note') {
     recap.push(`📍 ${f.title}`);
-    const line = say(`${f.title}. ${f.text}`);
     setBox('.banner', `<small>${E.chapterOf(g).place}</small><b>${f.title}</b><span>${f.text}</span>`);
-    await Promise.all([v.pause(Math.min(9000, 3000 + f.text.length * 50)), line]);
+    await v.pause(Math.min(9000, 3000 + f.text.length * 50));
     setBox('.banner', null);
     return;
   }
@@ -560,7 +527,6 @@ async function announce(f: E.Fx, g: Game, v: Board) {
   if (text && gm) {
     recap.push(text);
     setBox('.caption', text);
-    if (voiced) speaking = say(text);
   }
 }
 
@@ -573,7 +539,7 @@ async function drain(g: Game) {
     fxSound(f, v);
     await announce(f, g, v);
     await v.play(f);
-    if (f.t === 'attack' && g.status === 'gm') await Promise.all([v.pause(1800), speaking]);
+    if (f.t === 'attack' && g.status === 'gm') await v.pause(1800);
   }
   v.sync(g);
 }
@@ -588,8 +554,7 @@ async function after() {
   busy = false;
   if (game !== g) return;
   if (g.status === 'won' || g.status === 'lost') { result(); return; }
-  if (g.status === 'gm' && !g.gmHuman) { spoken = g.log.length; await runGm(g); return; }
-  speakLog(g);
+  if (g.status === 'gm' && !g.gmHuman) { await runGm(g); return; }
   if (g.status === 'gm' && !gmOpen) { gmOpen = true; recap = []; }
   if (g.status === 'play' && gmOpen) { gmOpen = false; setBox('.caption', null); showRecap(); }
   board();
@@ -600,7 +565,6 @@ async function runGm(g: Game) {
   recap = [];
   if (view) view.speed = calm() ? 5 : 1;
   setBox('.caption', 'Der Oberpunktezähler ist dran … <small>Tippen macht es schneller</small>');
-  void say('Der Oberpunktezähler ist dran.');
   board();
   for (const _ of E.gmTurn(g)) {
     void _;
@@ -615,8 +579,6 @@ async function runGm(g: Game) {
   if (g.status === 'won' || g.status === 'lost') { result(); return; }
   if (!recap.length) recap.push('Alles ruhig in dieser Runde.');
   showRecap();
-  spoken = g.log.length - 1;
-  speakLog(g);
   board();
 }
 
@@ -645,6 +607,25 @@ function audioBar() {
   });
   document.body.append(bar);
 }
+
+/** Pfeiltasten: ein Feld laufen, oder dort angreifen, die Tür oder die Truhe öffnen. */
+const ARROWS: Record<string, [number, number]> = {
+  ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
+};
+document.addEventListener('keydown', (e) => {
+  const d = ARROWS[e.key], g = game;
+  if (!d || !g || !view || e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.target instanceof Element && e.target.closest('input, textarea, select')) return;
+  e.preventDefault();
+  if (busy || g.status !== 'play') return;
+  const h = E.activeHero(g), x = h.x + d[0], y = h.y + d[1];
+  const m = E.monsterAt(g, x, y);
+  aiming = false;
+  if (m) { if (E.canAttack(g, m)) act({ type: 'attack', uid: m.uid }); return; }
+  if (E.canOpenDoor(g, x, y)) act({ type: 'door', x, y });
+  else if (E.canOpenChest(g, x, y)) act({ type: 'chest', x, y });
+  else if (E.reachable(g).has(`${x},${y}`)) act({ type: 'move', x, y });
+});
 
 let unlocked = false;
 document.addEventListener('pointerdown', () => {

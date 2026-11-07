@@ -434,6 +434,8 @@ export const objects = {
     p(8, 13, 16, 1, '#b97a3a');
   }),
   door: () => sprite('o:door', (p) => {
+    // Randlos: Die Zarge füllt das ganze Feld, sonst sieht man zwischen Tür und Wand durch.
+    p(0, 0, 32, 32, '#3a2211');
     p(2, 2, 28, 28, '#4a2d16');
     for (let x = 4; x < 28; x += 6) p(x, 3, 5, 26, '#7c4d26');
     p(2, 9, 28, 2, '#2a2a30'); p(2, 21, 28, 2, '#2a2a30');
