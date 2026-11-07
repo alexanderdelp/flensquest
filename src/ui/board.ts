@@ -199,16 +199,55 @@ export class Board {
     pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
     ctx.closePath();
     ctx.fillStyle = fill; ctx.fill();
-    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = Math.max(2, pts[0].y * 0 + 2.5); ctx.stroke(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 2.5; ctx.stroke(); }
   }
 
   private drawMarks() {
     const pulse = 0.5 + 0.5 * Math.sin(this.time / 300);
     for (const m of this.marks) {
+      if (m.kind === 'walk') continue;
       const col = MARK_COLOR[m.kind];
       const on = this.hover?.x === m.x && this.hover?.y === m.y;
-      const fill = `${col}${on ? 0.55 : m.kind === 'walk' ? 0.2 : 0.14})`;
-      this.floorQuad(m.x, m.y, 0.05, fill, m.kind === 'walk' ? undefined : `${col}${0.6 + pulse * 0.4})`);
+      this.floorQuad(m.x, m.y, 0.05, `${col}${on ? 0.55 : 0.14})`, `${col}${0.6 + pulse * 0.4})`);
+    }
+    this.drawReach(pulse);
+  }
+
+  /** Reichweite: leuchtender Rand um das Gebiet und ein Punkt auf jedem Feld. */
+  private drawReach(pulse: number) {
+    const g = this.game, { ctx } = this;
+    const walk = this.marks.filter((m) => m.kind === 'walk');
+    if (!g || !walk.length) return;
+    const inside = new Set(walk.map((m) => `${m.x},${m.y}`));
+    const a = activeHero(g);
+    if (g.status === 'play') inside.add(`${a.x},${a.y}`);
+    const has = (x: number, y: number) => inside.has(`${x},${y}`);
+    for (const m of walk) {
+      if (this.hover?.x === m.x && this.hover?.y === m.y) this.floorQuad(m.x, m.y, 0.04, 'rgba(255,240,170,.6)', '#fff2c0');
+      const f = this.p(m.x + 0.5, m.y + 0.5);
+      ctx.fillStyle = `rgba(255,240,170,${0.7 + pulse * 0.3})`;
+      ctx.strokeStyle = 'rgba(30,40,45,.75)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(f.x, f.y, f.s * 0.13, f.s * 0.13 * Math.max(0.45, this.view.sin), 0, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+    }
+    const edges: [number, number, number, number][] = [];
+    for (const m of inside) {
+      const [x, y] = m.split(',').map(Number);
+      if (!has(x, y - 1)) edges.push([x, y, x + 1, y]);
+      if (!has(x, y + 1)) edges.push([x, y + 1, x + 1, y + 1]);
+      if (!has(x - 1, y)) edges.push([x, y, x, y + 1]);
+      if (!has(x + 1, y)) edges.push([x + 1, y, x + 1, y + 1]);
+    }
+    for (const [width, color] of [[7, 'rgba(20,30,35,.7)'], [3.5, '#fff2c0']] as const) {
+      ctx.lineWidth = width; ctx.strokeStyle = color; ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (const [x0, y0, x1, y1] of edges) {
+        const s = this.p(x0, y0), e = this.p(x1, y1);
+        ctx.moveTo(s.x, s.y); ctx.lineTo(e.x, e.y);
+      }
+      ctx.stroke();
     }
   }
 
