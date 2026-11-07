@@ -336,6 +336,7 @@ function panel() {
     <span class="brand"><img class="logo mini" src="img/schriftzug.webp" alt="FlensQuest"><b>${ch.title}</b></span>
     <span class="punkte" title="Punkte in Flensburg">${Array.from({ length: PUNKTE_LIMIT }, (_, i) => `<i class="${i < g.punkte ? 'on' : ''}"></i>`).join('')} <small>${g.punkte}/${PUNKTE_LIMIT} Punkte</small></span>
     <span>Runde ${g.round} · ${g.oere} Öre</span>
+    <span class="tinte" title="Spielleiter: Tinte und Handkarten" data-say="Spielleiter: ${g.tinte} Tinte, ${g.gmHand.length} Karten">🖋️ ${g.tinte} · 🂠 ${g.gmHand.length}</span>
     <button class="mini" data-quit>Menü</button>`;
   app.querySelector('.side')!.innerHTML = `
     <p class="goal small">${ch.goalText}${g.goalTaken ? ' ✔ gefunden' : ''}${g.bossDead ? ' ✔ besiegt' : ''}</p>
@@ -371,7 +372,7 @@ function heroTurn(g: Game) {
     `<i class="tide t${i + 1}"></i>${i + 1}`
   )).join(' ');
   return `<p class="turn"><b>${HEROES[h.id].name}</b> · ${'🌊'.repeat(g.tiden)}</p>
-    <p class="reach">👣 <b>${E.stepsLeft(g)}</b> Schritte übrig · ${h.spd} je Tide${open}</p>
+    <p class="reach">👣 <b>${E.stepsLeft(g)}</b> Schritte übrig · ${E.spdOf(g, h)} je Tide${open}${g.slow ? ' · Schlick: 1 weniger' : ''}</p>
     ${g.tiden || g.steps ? `<p class="reach legend">Punkte zeigen die Tide: ${legend}</p>` : ''}`;
 }
 
@@ -388,14 +389,19 @@ function heroButtons(g: Game, playing: boolean) {
 function gmHint(g: Game) {
   const sel = g.monsters.find((o) => o.uid === gmSel);
   const open = g.monsters.filter((o) => E.gmCanAct(g, o)).length;
-  return `<p class="turn"><b>Spielleiter</b> · ${sel && E.gmCanAct(g, sel) ? MONSTERS[sel.kind].name : `${open} Gegner bereit`}</p>`;
+  const buffs = [g.gmEile ? 'Eile' : '', g.gmZorn ? '+1 Angriff' : ''].filter(Boolean).join(', ');
+  return `<p class="turn"><b>Spielleiter</b> · ${sel && E.gmCanAct(g, sel) ? MONSTERS[sel.kind].name : `${open} Gegner bereit`}</p>
+    <p class="reach">🖋️ <b>${g.tinte}</b> Tinte${buffs ? ` · gilt diese Runde: ${buffs}` : ''}</p>`;
 }
 
 function gmButtons(g: Game) {
   const off = busy ? 'disabled' : '';
-  return `<div class="cards-gm">${g.gmCards.map((c, i) => `<button data-card="${i}" ${g.gmCardPlayed ? 'disabled' : off}>
-      📜 ${E.deckOf(g)[c].name}<small>${E.deckOf(g)[c].text}</small></button>`).join('')}</div>
-    <button class="primary" data-gmend ${g.gmCardPlayed && !busy ? '' : 'disabled'}>Runde beenden</button>`;
+  return `<div class="cards-gm">${g.gmHand.map((c, i) => {
+    const card = E.cardOf(g, c), cost = E.costOf(g, c);
+    return `<button data-card="${i}" ${E.canPlayCard(g, i) ? off : 'disabled'} data-say="${card.name}, ${cost} Tinte. ${card.text}">
+      <span class="cost" aria-hidden="true">🖋️ ${cost}</span>📜 ${card.name}<small>${card.text}</small></button>`;
+  }).join('') || '<p class="reach">Keine Karten auf der Hand.</p>'}</div>
+    <button class="primary" data-gmend ${busy ? 'disabled' : ''}>Runde beenden</button>`;
 }
 
 function setupZoom(b: Board) {
@@ -528,7 +534,7 @@ async function announce(f: E.Fx, g: Game, v: Board) {
   if (f.t === 'card') {
     const line = voiced ? say(`${f.name}. ${f.text}`) : Promise.resolve();
     recap.push(`📜 ${f.name}: ${f.text}`);
-    setBox('.banner', `<small>Ereigniskarte</small><b>${f.name}</b><span>${f.text}</span>`);
+    setBox('.banner', `<small>Spielleiter spielt · ${f.cost} Tinte</small><b>${f.name}</b><span>${f.text}</span>`);
     await Promise.all([v.pause(4500), line]);
     setBox('.banner', null);
     return;

@@ -1,6 +1,6 @@
 # ⚓ FlensQuest
 
-Ein augenzwinkerndes Keller-Abenteuer aus Flensburg für den Browser: 1 bis 4 Figuren an einem Gerät, den Spielleiter übernimmt der Rechner oder ein Mensch.
+Ein augenzwinkerndes Keller-Abenteuer aus Flensburg für den Browser: 1 bis 4 von fünf Figuren an einem Gerät, den Spielleiter übernimmt der Rechner oder ein Mensch.
 FlensQuest ist ein eigenständiges Spiel mit eigenen Regeln, Figuren und Kapiteln und steht in keiner Verbindung zu anderen Spielen oder Marken.
 
 ## Starten
@@ -22,13 +22,23 @@ npm run build
 - **Der Fall Hafenlogbuch:** fünf Kapitel, der ursprüngliche Einstieg.
 - **Die Akte Förde:** sechs Missionen rund um den gestohlenen Punkte-Stempel.
 
+## Figuren
+
+- **Frauke**, Fördefischerin: FlensNetz fesselt einen Gegner aus bis zu 3 Feldern.
+- **Jörn**, Werftschlosser: hält viel aus, der Dicke Schlüssel trifft sicher für 4.
+- **Maren**, Möwenflüsterin: schnell, ihr Schwarm trifft alle Gegner in der Nähe.
+- **Hinnerk**, Rumkontorist: Lütt un Lütt heilt und holt Gestürzte zurück.
+- **Juni**, die echte Nordhexe: Möwe Piet stürzt sich auf einen Gegner bis 4 Felder weit, 2 Schaden, danach setzt er aus.
+
 ## Regeln in Kürze
 
 - **3 Tiden je Zug:** Eine Tide bringt dich so viele Felder weit wie dein Schritt-Wert oder bezahlt eine Aktion (Angriff, Suchen, Truhe, Essen, Spezialkönnen).
 - **Angriff:** 2 Würfel + Angriff gegen 7 + Rüstung. Einmal je Zug. 6+6 trifft doppelt, 1+1 nie.
 - **Türen** öffnen ist kostenlos. **Suchen** entschärft Fallen und findet verborgene Türen in der Nähe.
 - **Punkte in Flensburg:** Fallen, Knöllchen, gestürzte Figuren und der Stempel jede vierte Runde bringen Punkte. Bei 8 ist der Lappen weg und das Kapitel verloren.
-- **Hafenkiosk:** Zwischen den Kapiteln gibt es Friesennerz, Bootshaken, Gummistiefel und Fischbrötchen für Öre.
+- **Spielleiter:** Er hat eine Hand aus Karten und bezahlt sie mit Stempeltinte: 2 zum Start, 2 mehr je Runde, höchstens 8. Jede Runde kommt eine Karte dazu, höchstens 5 auf der Hand. Karten kosten 2 bis 6 Tinte: Eile, härtere Schläge, Gegner flicken, Schietwetter, Verstärkung, verdeckte Fallen, Fischbrötchen klauen, Schlick oder ein Punkt in Flensburg. Rechner und Mensch spielen nach denselben Regeln.
+- **Hafenkiosk:** Zwischen den Kapiteln gibt es Friesennerz, Bootshaken, Gummistiefel, Katzenohren und Fischbrötchen für Öre.
+- **Ansicht:** Blickwinkel per Regler, Zoom per Knöpfen, Mausrad oder zwei Fingern.
 
 ## Ton
 
@@ -36,8 +46,9 @@ Geräusche und das Ambiente erzeugt der Browser selbst, es gibt keine Audiodatei
 
 ## Aufbau
 
-- `src/game/data.ts`: Figuren, Gegner, Kapitel, Karten, Ereignisse
+- `src/game/data.ts`: Figuren, Gegner, Kapitel, Karten, Spielleiterkarten und ihre Kosten
 - `src/game/akte.ts`, `src/game/campaigns.ts`: Story-Kampagne und Kampagnenliste
+- `src/ui/board.ts`, `src/ui/sprites.ts`, `src/ui/projection.ts`: Brett, Pixel-Art und Perspektive
 - `src/game/engine.ts`: Spielregeln und Spielleiter, ohne Abhängigkeit zur Oberfläche
 - `src/main.ts`, `src/ui/style.css`: Oberfläche
 - `tests/engine.test.ts`: Regeltests und ein Bot, der alle Kapitel durchspielt

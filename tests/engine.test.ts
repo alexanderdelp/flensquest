@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { CAMPAIGNS } from '../src/game/campaigns';
-import { CHAPTERS, HEROES, MONSTERS, type HeroId } from '../src/game/data';
+import {
+  CHAPTERS, GM_COST, HAND_MAX, HAND_START, HEROES, MONSTERS, TINTE_MAX, TINTE_RUNDE, TINTE_START, type GmEffect, type HeroId,
+} from '../src/game/data';
 import * as E from '../src/game/engine';
 
 const ALL: HeroId[] = ['frauke', 'joern', 'maren', 'hinnerk'];
@@ -315,24 +317,81 @@ describe('Spielleiter als Mensch', () => {
     return { g, h, m };
   };
 
-  it('die Runde wartet auf den Menschen und zieht zwei Karten', () => {
+  const card = (id: GmEffect) => CAMPAIGNS[0].cards.findIndex((c) => c.id === id);
+
+  it('die Runde wartet auf den Menschen, bringt Tinte und eine Karte', () => {
     const { g } = start();
     expect(g.status).toBe('gm');
-    expect(g.gmCards).toHaveLength(2);
-    expect(E.dispatch(g, { type: 'gmEnd' })).toBe(false);
+    expect(g.tinte).toBe(TINTE_START + TINTE_RUNDE);
+    expect(g.gmHand).toHaveLength(HAND_START + 1);
+    expect(E.dispatch(g, { type: 'gmEnd' })).toBe(true);
+    expect(g.status).toBe('play');
   });
 
-  it('Gegner zieht einmal, greift einmal an, und die Karte beendet die Runde', () => {
+  it('Gegner zieht einmal und greift einmal an', () => {
     const { g, h, m } = start();
     const target = { x: h.x - 1, y: h.y };
     expect(E.dispatch(g, { type: 'gmMove', uid: m.uid, ...target })).toBe(true);
     expect(E.dispatch(g, { type: 'gmMove', uid: m.uid, x: m.x - 1, y: m.y })).toBe(false);
     expect(E.dispatch(g, { type: 'gmAttack', uid: m.uid, hero: h.id })).toBe(true);
     expect(E.dispatch(g, { type: 'gmAttack', uid: m.uid, hero: h.id })).toBe(false);
-    expect(E.dispatch(g, { type: 'gmCard', index: 1 })).toBe(true);
-    expect(E.dispatch(g, { type: 'gmCard', index: 0 })).toBe(false);
     expect(E.dispatch(g, { type: 'gmEnd' })).toBe(true);
     expect(g.status === 'play' || g.status === 'lost').toBe(true);
+  });
+
+  it('Karten kosten Tinte und mehrere sind möglich, solange sie reicht', () => {
+    const { g } = start();
+    g.gmHand = [card('klau'), card('eile'), card('knoellchen')];
+    g.tinte = GM_COST.klau + GM_COST.eile;
+    expect(E.canPlayCard(g, 2)).toBe(false);
+    expect(E.dispatch(g, { type: 'gmCard', index: 0 })).toBe(true);
+    expect(E.dispatch(g, { type: 'gmCard', index: 0 })).toBe(true);
+    expect(g.tinte).toBe(0);
+    expect(g.gmEile).toBe(true);
+    expect(g.gmHand).toEqual([card('knoellchen')]);
+    expect(g.gmPile).toEqual([card('klau'), card('eile')]);
+    expect(E.dispatch(g, { type: 'gmCard', index: 0 })).toBe(false);
+  });
+
+  it('Eile gibt Gegnern 2 Schritte mehr, nur bis Rundenende', () => {
+    const { g, m } = start();
+    g.seen = g.seen.map((row) => row.map(() => true));
+    g.tiles = g.tiles.map((row) => row.map(() => '.'));
+    const longest = () => Math.max(...[...E.gmReachable(g, m).values()].map((p) => p.length));
+    const before = longest();
+    g.gmHand = [card('eile')]; g.tinte = 9;
+    E.dispatch(g, { type: 'gmCard', index: 0 });
+    expect(before).toBe(MONSTERS[m.kind].spd);
+    expect(longest()).toBe(before + 2);
+    E.dispatch(g, { type: 'gmEnd' });
+    expect(g.gmEile).toBe(false);
+  });
+
+  it('Schlick bremst die Figuren in der nächsten Runde', () => {
+    const { g } = start();
+    g.gmHand = [card('schlick')]; g.tinte = 9;
+    E.dispatch(g, { type: 'gmCard', index: 0 });
+    E.dispatch(g, { type: 'gmEnd' });
+    const h = E.activeHero(g);
+    expect(E.spdOf(g, h)).toBe(h.spd - 1);
+  });
+
+  it('Baustelle legt eine verdeckte Falle neben eine Figur', () => {
+    const { g } = start();
+    const n = g.traps.length;
+    g.gmHand = [card('falle')]; g.tinte = 9;
+    expect(E.dispatch(g, { type: 'gmCard', index: 0 })).toBe(true);
+    expect(g.traps).toHaveLength(n + 1);
+    const t = g.traps.at(-1)!;
+    expect(Math.min(...E.living(g).map((h) => E.dist(h, t)))).toBeGreaterThanOrEqual(2);
+  });
+
+  it('Karten ohne Wirkung lassen sich nicht spielen', () => {
+    const { g } = start();
+    g.heroes.forEach((h) => { h.food = 0; });
+    g.gmHand = [card('klau'), card('flicken')]; g.tinte = 9;
+    expect(E.canPlayCard(g, 0)).toBe(false);
+    expect(E.canPlayCard(g, 1)).toBe(false);
   });
 
   it('Helden-Aktionen sind im Spielleiter-Zug gesperrt', () => {
@@ -343,6 +402,35 @@ describe('Spielleiter als Mensch', () => {
   it('Spielleiter-Rolle bleibt über Kapitel erhalten', () => {
     const c = E.newCampaign(['joern'], true);
     expect(E.finishChapter(c, E.startChapter(c, 1)).gmHuman).toBe(true);
+  });
+});
+
+describe('Spielleiter als Rechner', () => {
+  it('spielt Karten von seiner Hand, bezahlt sie und bleibt in den Grenzen', () => {
+    const g = E.startChapter(E.newCampaign(['joern', 'maren']), 5);
+    let played = 0;
+    for (let r = 0; r < 12 && g.status === 'play'; r++) {
+      while (g.status === 'play') E.endTurn(g);
+      const before = g.log.length;
+      for (const _ of E.gmTurn(g)) void _;
+      played += g.log.slice(before).filter((l) => l.startsWith('📜')).length;
+      expect(g.tinte).toBeGreaterThanOrEqual(0);
+      expect(g.tinte).toBeLessThanOrEqual(TINTE_MAX);
+      expect(g.gmHand.length).toBeLessThanOrEqual(HAND_MAX);
+    }
+    expect(played).toBeGreaterThan(0);
+  });
+
+  it('gleicher Startwert, gleiche Karten', () => {
+    const run = () => {
+      const g = E.startChapter(E.newCampaign(['joern']), 11);
+      for (let r = 0; r < 6 && g.status === 'play'; r++) {
+        while (g.status === 'play') E.endTurn(g);
+        for (const _ of E.gmTurn(g)) void _;
+      }
+      return g.log.filter((l) => l.startsWith('📜')).join('|');
+    };
+    expect(run()).toBe(run());
   });
 });
 

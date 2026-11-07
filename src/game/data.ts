@@ -282,20 +282,50 @@ export const CHAPTERS: Chapter[] = [
   },
 ];
 
-export interface EventCard {
-  id: 'nix' | 'schiet' | 'klau' | 'knoellchen' | 'verstaerkung' | 'moin';
-  name: string;
-  text: string;
-}
+/*
+ Spielleiterkarten: Der Spielleiter hält eine Hand und bezahlt Karten mit Stempeltinte.
+ Die Wirkung hängt nur an der id, Name und Text darf jede Kampagne selbst wählen.
+*/
+export type GmEffect = 'eile' | 'zorn' | 'flicken' | 'schiet' | 'verstaerkung' | 'falle' | 'klau' | 'schlick' | 'knoellchen';
 
-export const EVENTS: EventCard[] = [
-  { id: 'nix', name: 'Flaute', text: 'Nichts passiert. Der Oberpunktezähler rührt in seinem Kaffee.' },
-  { id: 'nix', name: 'Mittagspause', text: 'Das Amt hat geschlossen.' },
-  { id: 'moin', name: 'Moin!', text: 'Ein freundlicher Gruß vom Kai: alle heilen 1 Lebenspunkt.' },
-  { id: 'schiet', name: 'Schietwetter', text: 'Waagerechter Regen: jede Heldin und jeder Held nimmt 1 Schaden, außer mit Friesennerz.' },
+export interface GmCard { id: GmEffect; name: string; text: string }
+
+/** Tinte je Karte. */
+export const GM_COST: Record<GmEffect, number> = {
+  klau: 2, eile: 3, flicken: 3, zorn: 4, schiet: 4, schlick: 4, verstaerkung: 4, falle: 4, knoellchen: 6,
+};
+
+/** Karten, die vor dem Zug der Gegner wirken; der Rechner spielt sie zuerst. */
+export const GM_BEFORE: GmEffect[] = ['eile', 'zorn', 'flicken'];
+
+export const TINTE_START = 2;
+export const TINTE_RUNDE = 2;
+export const TINTE_MAX = 8;
+export const HAND_START = 3;
+export const HAND_MAX = 5;
+
+export const GM_CARDS: GmCard[] = [
+  { id: 'eile', name: 'Eilzustellung', text: 'Alle Gegner laufen diese Runde 2 Felder weiter.' },
+  { id: 'eile', name: 'Eilzustellung', text: 'Alle Gegner laufen diese Runde 2 Felder weiter.' },
+  { id: 'zorn', name: 'Doppelt gestempelt', text: 'Alle Gegner greifen diese Runde mit +1 an.' },
+  { id: 'zorn', name: 'Doppelt gestempelt', text: 'Alle Gegner greifen diese Runde mit +1 an.' },
+  { id: 'flicken', name: 'Pflaster vom Amt', text: 'Der am schwersten getroffene Gegner heilt 3 Lebenspunkte.' },
+  { id: 'flicken', name: 'Pflaster vom Amt', text: 'Der am schwersten getroffene Gegner heilt 3 Lebenspunkte.' },
+  { id: 'schiet', name: 'Schietwetter', text: 'Waagerechter Regen: Jede Figur ohne Friesennerz nimmt 1 Schaden, den letzten Lebenspunkt aber nie.' },
+  { id: 'schiet', name: 'Schietwetter', text: 'Waagerechter Regen: Jede Figur ohne Friesennerz nimmt 1 Schaden, den letzten Lebenspunkt aber nie.' },
+  { id: 'verstaerkung', name: 'Amtshilfe', text: 'Ein Knöllchenkobold taucht auf, mindestens 4 Felder von euch weg.' },
+  { id: 'verstaerkung', name: 'Amtshilfe', text: 'Ein Knöllchenkobold taucht auf, mindestens 4 Felder von euch weg.' },
+  { id: 'falle', name: 'Baustelle', text: 'Eine verdeckte Falle liegt jetzt 2 bis 3 Felder neben einer Figur. Suchen findet sie.' },
+  { id: 'falle', name: 'Baustelle', text: 'Eine verdeckte Falle liegt jetzt 2 bis 3 Felder neben einer Figur. Suchen findet sie.' },
   { id: 'klau', name: 'Möwenklau', text: 'Eine Möwe stiehlt ein Fischbrötchen.' },
+  { id: 'schlick', name: 'Schlick', text: 'Knöcheltief im Keller: In der nächsten Runde läuft jede Figur 1 Feld weniger je Tide.' },
   { id: 'knoellchen', name: 'Falsch geparkt', text: 'Das Boot stand im Halteverbot: 1 Punkt in Flensburg.' },
-  { id: 'verstaerkung', name: 'Amtshilfe', text: 'Ein Knöllchenkobold taucht auf.' },
+];
+
+/** Was der Rechner sagt, wenn er keine Karte spielt. */
+export const GM_IDLE: string[] = [
+  'Der Oberpunktezähler rührt in seinem Kaffee und spart Tinte.',
+  'Mittagspause im Amt. Die Tinte bleibt im Fass.',
 ];
 
 export const PUNKTE_LIMIT = 8;
