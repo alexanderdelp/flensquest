@@ -51,6 +51,24 @@ interface Box {
   top: string; side: string; front: HTMLCanvasElement | null; culled?: { e: boolean; w: boolean; s: boolean };
 }
 
+type Pt = { x: number; y: number };
+
+/** Konvexe Hülle (monotone Kette): der Bildschirmumriss eines Quaders. */
+function hull(pts: Pt[]) {
+  type P = Pt;
+  const p = [...pts].sort((a, b) => a.x - b.x || a.y - b.y);
+  const cross = (o: P, a: P, b: P) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const half = (list: P[]) => {
+    const out: P[] = [];
+    for (const q of list) {
+      while (out.length >= 2 && cross(out[out.length - 2], out[out.length - 1], q) <= 0) out.pop();
+      out.push(q);
+    }
+    return out.slice(0, -1);
+  };
+  return [...half(p), ...half([...p].reverse())];
+}
+
 const hash = (x: number, y: number) => ((x * 73856093) ^ (y * 19349663)) >>> 0;
 
 /** Zeichnet das Spielbrett auf ein Canvas und übersetzt Klicks in Felder. */
@@ -645,7 +663,7 @@ export class Board {
     if (v.hero) {
       if (v.down) this.place(heroDown(v.hero, v.gear), pos);
       else {
-        if (!ghost && v.key === hkey(activeHero(g)) && g.status === 'play') this.ring(pos);
+        if (!ghost && v.key === hkey(activeHero(g)) && g.status === 'play') this.clipFloor(g, v, () => this.ring(pos));
         const walk = 2 + (Math.floor(this.time / 110) % 2);
         const mood = moodOf(v.hp, v.maxHp);
         const frame = v.walking ? walk : (beat + n) % 2;
@@ -719,25 +737,54 @@ export class Board {
    * Kopf und Hut über der Mauerkante bleiben sichtbar.
    */
   private clipSides(g: Game, v: Vis, draw: () => void) {
-    const row = Math.round(v.y), col = Math.round(v.x), d = v.y + v.dy + 0.7;
-    const walls = [col - 1, col + 1].filter((nx) => g.seen[row]?.[nx] && this.solid(g, nx, row));
-    if (!walls.length) { draw(); return; }
-    const { ctx } = this;
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, this.canvas.width, this.canvas.height);
-    for (const nx of walls) {
+    const row = Math.round(v.y), col = Math.round(v.x), d = v.y + v.dy + 0.7, polys: Pt[][] = [];
+    for (const nx of this.sideWallsOf(g, row, col)) {
       // Figurenbilder stehen ungestaucht aufrecht. Als Wandhöhe in Bildmaß gilt die sichtbare Mauer samt Deckel,
       // rund 0,8 Feldbreiten über den Füßen: kleine Gegner verschwinden dahinter, Köpfe und Hüte nicht.
       // Die Innenkante zum Durchgang läuft in der Perspektive schräg vom Boden zur Wandoberkante.
       const inner = nx < col ? nx + 1 : nx, outer = nx < col ? nx : nx + 1;
       const i0 = this.p(inner, d), iw = this.p(inner, d, WALL), o0 = this.p(outer, d), ow = this.p(outer, d, WALL);
       const top = i0.y - WALL * 1.3 * i0.s, bottom = this.canvas.height;
-      ctx.moveTo(i0.x, bottom); ctx.lineTo(i0.x, i0.y); ctx.lineTo(iw.x, top);
-      ctx.lineTo(ow.x, top); ctx.lineTo(o0.x, o0.y); ctx.lineTo(o0.x, bottom);
-      ctx.closePath();
+      polys.push([{ x: i0.x, y: bottom }, i0, { x: iw.x, y: top }, { x: ow.x, y: top }, o0, { x: o0.x, y: bottom }]);
+      // Das vordere Wandstück (von der Standtiefe bis zur Front) steht vor der Figur und verdeckt sie ganz.
+      polys.push(this.blockHull(nx, nx + 1, Math.min(d, row + 1), row + 1, WALL));
     }
-    ctx.clip('evenodd');
+    this.excluding(polys, draw);
+  }
+
+  /** Liegt etwas auf dem Boden der Figur, etwa der Auswahlring, verdecken es Nachbarwände und offenes Türblatt. */
+  private clipFloor(g: Game, v: Vis, draw: () => void) {
+    const row = Math.round(v.y), col = Math.round(v.x);
+    const polys = this.sideWallsOf(g, row, col).map((nx) => this.blockHull(nx, nx + 1, row, row + 1, WALL));
+    if (g.tiles[row]?.[col] === 'O' && this.solid(g, col - 1, row) && this.solid(g, col + 1, row)) {
+      polys.push(this.blockHull(col + 0.03, col + 0.13, row + 0.08, row + 0.92, WALL));
+    }
+    this.excluding(polys, draw);
+  }
+
+  private sideWallsOf(g: Game, row: number, col: number) {
+    return [col - 1, col + 1].filter((nx) => g.seen[row]?.[nx] && this.solid(g, nx, row));
+  }
+
+  /** Bildschirmumriss eines Quaders. */
+  private blockHull(x0: number, x1: number, y0: number, y1: number, h: number): Pt[] {
+    const pts: Pt[] = [];
+    for (const x of [x0, x1]) for (const y of [y0, y1]) for (const z of [0, h]) pts.push(this.p(x, y, z));
+    return hull(pts);
+  }
+
+  /** Zeichnet, aber nicht in den angegebenen Flächen. Jede Fläche wird einzeln ausgespart, Überlappungen stören nicht. */
+  private excluding(polys: Pt[][], draw: () => void) {
+    if (!polys.length) { draw(); return; }
+    const { ctx } = this;
+    ctx.save();
+    for (const poly of polys) {
+      ctx.beginPath();
+      ctx.rect(0, 0, this.canvas.width, this.canvas.height);
+      poly.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+      ctx.closePath();
+      ctx.clip('evenodd');
+    }
     draw();
     ctx.restore();
   }
