@@ -650,15 +650,19 @@ export class Board {
         const mood = moodOf(v.hp, v.maxHp);
         const frame = v.walking ? walk : (beat + n) % 2;
         v.bob = frame === 1 ? 1 : 0;
-        this.place(heroSprite(v.hero, v.gear, frame, v.flip, mood, false), pos);
-        if (mood === 2) this.place(objects.wolke(beat + n), pos, 0.85);
+        this.clipSides(g, v, () => {
+          this.place(heroSprite(v.hero!, v.gear, frame, v.flip, mood, false), pos);
+          if (mood === 2) this.place(objects.wolke(beat + n), pos, 0.85);
+        });
         if (v.hero === 'nordhexe' && !ghost) this.drawPiet(v, pos);
       }
     } else if (v.monster) {
       const frame = v.walking ? Math.floor(this.time / 110) : beat + n;
-      this.place(monsterSprite(v.monster, frame, v.flip), pos);
-      if (v.blind) this.place(objects.sterne(beat + n), pos, 0.45);
-      else if (v.stuck) this.place(objects.netz(), pos);
+      this.clipSides(g, v, () => {
+        this.place(monsterSprite(v.monster!, frame, v.flip), pos);
+        if (v.blind) this.place(objects.sterne(beat + n), pos, 0.45);
+        else if (v.stuck) this.place(objects.netz(), pos);
+      });
       if (!ghost) this.bar(pos, v.hp / v.maxHp);
     }
     this.ctx.globalAlpha = 1;
@@ -707,6 +711,35 @@ export class Board {
         this.ctx.globalAlpha = 1;
       }
     });
+  }
+
+  /**
+   * Breite Figuren ragen seitlich in Nachbarwände. Das Bild der Figur steht wie eine Tafel auf ihrer Standtiefe;
+   * der Teil dieser Tafel, der seitlich in einer Nachbarwand liegt und unter Wandhöhe ist, wird weggeschnitten.
+   * Kopf und Hut über der Mauerkante bleiben sichtbar.
+   */
+  private clipSides(g: Game, v: Vis, draw: () => void) {
+    const row = Math.round(v.y), col = Math.round(v.x), d = v.y + v.dy + 0.7;
+    const walls = [col - 1, col + 1].filter((nx) => g.seen[row]?.[nx] && this.solid(g, nx, row));
+    if (!walls.length) { draw(); return; }
+    const { ctx } = this;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, this.canvas.width, this.canvas.height);
+    for (const nx of walls) {
+      // Figurenbilder stehen ungestaucht aufrecht. Als Wandhöhe in Bildmaß gilt die sichtbare Mauer samt Deckel,
+      // rund 0,8 Feldbreiten über den Füßen: kleine Gegner verschwinden dahinter, Köpfe und Hüte nicht.
+      // Die Innenkante zum Durchgang läuft in der Perspektive schräg vom Boden zur Wandoberkante.
+      const inner = nx < col ? nx + 1 : nx, outer = nx < col ? nx : nx + 1;
+      const i0 = this.p(inner, d), iw = this.p(inner, d, WALL), o0 = this.p(outer, d), ow = this.p(outer, d, WALL);
+      const top = i0.y - WALL * 1.3 * i0.s, bottom = this.canvas.height;
+      ctx.moveTo(i0.x, bottom); ctx.lineTo(i0.x, i0.y); ctx.lineTo(iw.x, top);
+      ctx.lineTo(ow.x, top); ctx.lineTo(o0.x, o0.y); ctx.lineTo(o0.x, bottom);
+      ctx.closePath();
+    }
+    ctx.clip('evenodd');
+    draw();
+    ctx.restore();
   }
 
   private ring(p: Pos) {
