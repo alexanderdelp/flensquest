@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import pkg from '../../package.json';
+import pkg from '../../package.json' with { type: 'json' };
 import { spoken, startGame, stubSpeech } from './helpers';
 
 const { version } = pkg;

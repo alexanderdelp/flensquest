@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import changelog from '../../CHANGELOG.md?raw';
-import pkg from '../../package.json';
+import pkg from '../../package.json' with { type: 'json' };
 import { VERSION, versionLabel } from '../../src/version';
 
 describe('Version', () => {
