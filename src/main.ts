@@ -436,6 +436,7 @@ function board() {
           <div class="banner" hidden></div>
           <div class="caption" hidden></div>
           <div class="recap" hidden></div>
+          <div class="tip" hidden></div>
           <div class="zoom" role="group" aria-label="Zoom">
             <button data-zoom="in" aria-label="Hineinzoomen" title="Hineinzoomen">＋</button>
             <button data-zoom="out" aria-label="Herauszoomen" title="Herauszoomen">－</button>
@@ -449,6 +450,7 @@ function board() {
     if (import.meta.env.DEV) (window as unknown as { board: Board }).board = view;
     setupZoom(view);
     view.onStep = () => play('step');
+    view.onHover = showTip;
   }
   const fresh = view!.game !== g;
   const turn = `${g.round}:${g.turn}:${g.status}`;
@@ -458,6 +460,61 @@ function board() {
   if (fresh) view!.sync(g);
   view!.marks = marks(g);
   panel();
+}
+
+const PROPS: Record<E.Prop['kind'], string> = {
+  fass: '🛢️ <b>Rumfass</b><small>Voll, zu, im Weg. Hier kommt keiner durch.</small>',
+  kiste: '📦 <b>Frachtkiste</b><small>Zugenagelt. Steht im Weg.</small>',
+  pumpe: '🚰 <b>Lenzpumpe</b><small>Quietscht und steht im Weg.</small>',
+  regal: '🗄️ <b>Aktenregal</b><small>Bis oben voll mit Vorgängen. Steht im Weg.</small>',
+};
+
+/** Tooltip-Text für ein sichtbares Feld: Gegner, Figuren und Gegenstände. Verborgenes bleibt verborgen. */
+function tipFor(g: Game, p: E.Pos): string | null {
+  if (!g.seen[p.y]?.[p.x]) return null;
+  const m = E.monsterAt(g, p.x, p.y);
+  if (m && E.isActive(g, m)) {
+    const d = MONSTERS[m.kind], ch = E.chapterOf(g);
+    const state = [m.blind ? 'geblendet' : m.stuck ? 'gefesselt' : '', d.boss ? 'Endgegner' : ''].filter(Boolean).join(' · ');
+    return `${d.icon} <b>${d.name}</b>${state ? ` <em>${state}</em>` : ''}
+      <span>❤️ ${m.hp}/${m.maxHp} · ⚔️ ${d.att} · 🛡️ ${d.arm} · 👣 ${d.spd}</span>
+      <span>${d.dmg} Schaden, Reichweite ${d.range} · ${d.reward} Öre</span>
+      ${ch.foes?.[m.kind] ? `<small>${ch.foes[m.kind]}</small>` : ''}`;
+  }
+  const h = E.heroAt(g, p.x, p.y);
+  if (h) {
+    const d = HEROES[h.id];
+    return `${d.icon} <b>${d.name}</b> <em>${h.down ? 'gestürzt' : d.title}</em>
+      <span>❤️ ${h.hp}/${h.maxHp} · ⚔️ ${h.att} · 🛡️ ${h.arm} · 👣 ${E.spdOf(g, h)}</span>
+      <span>🥪 ${h.food} · ✨ ${d.special} noch ${h.charges}×</span>`;
+  }
+  if (E.chestAt(g, p.x, p.y)) return '🧰 <b>Truhe</b><small>Öre, ein Fischbrötchen oder ein Mimik-Rumfass. Öffnen kostet eine Tide.</small>';
+  const t = E.tile(g, p.x, p.y);
+  if (t === 'D') return '🚪 <b>Tür</b><small>Öffnen kostet nichts. Dahinter wartet, was eben wartet.</small>';
+  if (t === 'O') return '🚪 <b>Offene Tür</b>';
+  if (g.goal && !g.goalTaken && g.goal.x === p.x && g.goal.y === p.y) {
+    const goal = E.chapterOf(g).goal;
+    return `${goal.icon ?? '⭐'} <b>${goal.item ?? 'Ziel'}</b><small>${E.chapterOf(g).goalText}</small>`;
+  }
+  if (g.exit && g.exit.x === p.x && g.exit.y === p.y) {
+    return `🪜 <b>Ausgang</b><small>${g.goalTaken || E.chapterOf(g).goal.type === 'besiegen' ? 'Hier geht es raus.' : 'Erst den Auftrag erledigen.'}</small>`;
+  }
+  const prop = g.props.find((o) => o.x === p.x && o.y === p.y);
+  if (prop) return PROPS[prop.kind];
+  return null;
+}
+
+function showTip(p: E.Pos | null, cx: number, cy: number) {
+  const box = app.querySelector<HTMLElement>('.tip'), wrap = app.querySelector<HTMLElement>('.boardwrap');
+  const text = p && game && !busy ? tipFor(game, p) : null;
+  if (!box || !wrap || !text) { if (box) box.hidden = true; return; }
+  box.innerHTML = text;
+  box.hidden = false;
+  const r = wrap.getBoundingClientRect();
+  const x = Math.min(cx - r.left + 16, r.width - box.offsetWidth - 6);
+  const y = cy - r.top + 18 + box.offsetHeight > r.height ? cy - r.top - box.offsetHeight - 12 : cy - r.top + 18;
+  box.style.left = `${Math.max(6, x)}px`;
+  box.style.top = `${Math.max(6, y)}px`;
 }
 
 const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -549,6 +606,7 @@ async function after() {
   busy = true;
   if (view) view.speed = calm() ? 5 : 1;
   setBox('.recap', null);
+  setBox('.tip', null);
   board();
   await drain(g);
   busy = false;
@@ -563,6 +621,7 @@ async function after() {
 async function runGm(g: Game) {
   busy = true;
   recap = [];
+  setBox('.tip', null);
   if (view) view.speed = calm() ? 5 : 1;
   setBox('.caption', 'Der Oberpunktezähler ist dran … <small>Tippen macht es schneller</small>');
   board();
