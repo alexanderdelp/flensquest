@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
    content  → nichts
    core     → content
    kladde   → core, content
-   campaigns→ kladde, core, content
+   campaigns→ kladde, core, content und die Kladde-Dateien in kampagnen/
    net      → core, content
    platform → core (nur Typen)
    ui       → alles außer main
@@ -32,7 +32,7 @@ const ALLOWED: Record<string, string[]> = {
   content: ['content'],
   core: ['core', 'content'],
   kladde: ['kladde', 'core', 'content'],
-  campaigns: ['campaigns', 'kladde', 'core', 'content'],
+  campaigns: ['campaigns', 'kladde', 'core', 'content', 'kampagnen'],
   net: ['net', 'core', 'content'],
   platform: ['platform', 'core'],
   version: [],

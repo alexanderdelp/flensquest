@@ -1,10 +1,16 @@
 /** Kleine DOM-Helfer für die Bildschirme. Alles hängt am Element #app. */
+export { esc } from './text';
 
-export const app = document.querySelector<HTMLDivElement>('#app')!;
+/** Wurzelelement der Seite; erst beim Gebrauch gesucht, damit reine Module ohne DOM testbar bleiben. */
+export const app = {
+  get el() { return document.querySelector<HTMLDivElement>('#app')!; },
+  querySelector<T extends Element = HTMLElement>(sel: string) { return this.el.querySelector<T>(sel as never) as T | null; },
+  querySelectorAll<T extends Element = HTMLElement>(sel: string) { return this.el.querySelectorAll<T>(sel as never); },
+};
 
 export const LOGO = '<img class="logo" src="img/schriftzug.webp" alt="FlensQuest">';
 
-export function html(markup: string) { app.innerHTML = markup; }
+export function html(markup: string) { app.el.innerHTML = markup; }
 
 export function on(sel: string, fn: (el: HTMLElement) => void) {
   app.querySelectorAll<HTMLElement>(sel).forEach((el) => el.addEventListener('click', () => fn(el)));
@@ -17,6 +23,3 @@ export function setBox(sel: string, content: string | null) {
   el.hidden = content === null;
   if (content !== null) el.innerHTML = content;
 }
-
-/** Schützt Texte aus eigenen Kampagnen vor HTML. */
-export const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);

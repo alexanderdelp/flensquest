@@ -1,21 +1,24 @@
 {
   "name": "flensquest",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite --port 5190",
-    "build": "tsc --noEmit && vite build",
+    "build": "npm run typecheck && vite build",
     "test": "vitest run --project unit --project integration",
     "test:watch": "vitest --project unit --project integration",
     "test:balance": "vitest run --project balance",
     "test:e2e": "playwright test",
     "test:coverage": "vitest run --project unit --project integration --coverage",
     "test:all": "npm test && npm run test:balance && npm run test:e2e",
-    "telegram": "node tools/telegram.mjs"
+    "telegram": "node tools/telegram.mjs",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tests/e2e",
+    "kladde": "node tools/kladde.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.0",
+    "@types/node": "^26.6.6",
     "@vitest/coverage-v8": "^5.1.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.6",

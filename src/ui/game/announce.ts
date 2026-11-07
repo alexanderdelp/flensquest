@@ -1,7 +1,7 @@
 import { PUNKTE_LIMIT } from '../../content';
 import type { Fx } from '../../core';
 import { play } from '../audio';
-import { esc } from '../dom';
+import { esc } from '../text';
 
 /** Was über dem Brett erscheint und was man hört. Reine Textbausteine plus Geräusch je Ereignis. */
 

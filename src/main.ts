@@ -1,6 +1,7 @@
 import './ui/style.css';
-import { registerBuiltins } from './campaigns';
+import { registerBuiltins, registerOwn } from './campaigns';
 import { campaigns } from './core';
+import { loadCampaignSources } from './platform/storage';
 import { play, unlock } from './ui/audio';
 import { installAudioBar } from './ui/audiobar';
 import { currentView, installKeys } from './ui/game/controller';
@@ -10,6 +11,7 @@ import { session } from './ui/session';
 /* Start: Kampagnen eintragen, Bedienelemente anhängen, Startseite zeigen. */
 
 registerBuiltins();
+registerOwn(loadCampaignSources());
 session.chosen = campaigns()[0].id;
 
 let unlocked = false;

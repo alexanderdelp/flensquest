@@ -1,54 +1,69 @@
-import { MONSTERS, type MonsterId } from '../content';
-import { registerCampaign, type CampaignDef, type Chapter, type Script } from '../core';
-import { AKTE_CARDS, AKTE_CHAPTERS, AKTE_EPILOG, AKTE_IDLE, AKTE_INTRO, AKTE_LOST, AKTE_RETRY } from './legacy/akte';
-import { CHAPTERS, GM_CARDS, GM_IDLE } from './legacy/hafen';
-import type { Chapter as LegacyChapter } from './legacy/types';
+import akte from '../../kampagnen/akte.kladde?raw';
+import hafen from '../../kampagnen/hafen.kladde?raw';
+import { campaigns, registerCampaign, unregisterCampaign, type CampaignDef } from '../core';
+import { compile, formatDiagnostic, type CompileResult } from '../kladde';
 
-/** Übergang: altes Kapitelformat (Raumtexte, Gegnertexte, Wende) in Skripte umwandeln. */
-export function fromLegacy(old: LegacyChapter): Chapter {
-  const scripts: Script[] = [
-    ...(old.notes ?? []).map((n): Script => ({
-      when: { on: 'tuer', at: n.at.map(([x, y]) => ({ x, y })) },
-      then: [{ do: 'zeige', title: n.title, text: n.text }, ...(n.spawn ?? []).map((s) => ({ do: 'rufe' as const, kind: s.kind, at: { x: s.x, y: s.y } }))],
-    })),
-    ...Object.entries(old.foes ?? {}).map(([kind, text]): Script => ({
-      when: { on: 'sieht', kind: kind as MonsterId },
-      then: [{ do: 'zeige', title: MONSTERS[kind as MonsterId].name, text: text! }],
-    })),
-    ...(old.phase ? [{
-      when: { on: 'halb' },
-      then: [{ do: 'zeige', title: old.phase.title, text: old.phase.text }, ...old.phase.spawn.map((s) => ({ do: 'rufe' as const, kind: s.kind, at: { x: s.x, y: s.y } }))],
-    } as Script] : []),
-  ];
-  const { notes: _n, foes: _f, phase: _p, ...rest } = old;
-  void _n; void _f; void _p;
-  return { ...rest, scripts };
+/*
+ Kampagnen des Spiels: die mitgelieferten Kladde-Dateien aus kampagnen/ und eigene, die jemand lädt.
+ Hier wird nur übersetzt und eingetragen; wo eigene Kampagnen liegen, entscheidet die Oberfläche.
+*/
+
+/** Mitgelieferte Kampagnen in der Reihenfolge der Auswahl. */
+export const BUILTIN_SOURCES: Record<string, string> = { hafen, akte };
+
+export const isBuiltin = (id: string) => id in BUILTIN_SOURCES;
+
+/** Übersetzt die mitgelieferten Kampagnen; ein Fehler darin ist ein Fehler im Spiel selbst. */
+export function builtins(): CampaignDef[] {
+  return Object.entries(BUILTIN_SOURCES).map(([file, src]) => {
+    const r = compile(src);
+    if (!r.campaign) throw new Error(`kampagnen/${file}.kladde: ${r.errors.map(formatDiagnostic).join('; ')}`);
+    return r.campaign;
+  });
 }
 
-export const BUILTIN: CampaignDef[] = [
-  {
-    id: 'hafen',
-    title: 'Der Fall Hafenlogbuch',
-    image: 'img/kampagne-hafen.webp',
-    blurb: 'Fünf Kapitel von der Hafenspitze bis ins Punktearchiv. Der ursprüngliche Einstieg in FlensQuest.',
-    chapters: CHAPTERS.map(fromLegacy),
-    cards: GM_CARDS,
-    idle: GM_IDLE,
-  },
-  {
-    id: 'akte',
-    title: 'Die Akte Förde',
-    image: 'img/kampagne-akte.webp',
-    blurb: 'Das Geheimnis der verschwundenen Punkte: Sechs Missionen quer durch Flensburg, mit Fälschern, Möwenbanden und einem Oberarchivar.',
-    chapters: AKTE_CHAPTERS.map(fromLegacy),
-    cards: AKTE_CARDS,
-    idle: AKTE_IDLE,
-    intro: AKTE_INTRO,
-    epilog: AKTE_EPILOG,
-    lostText: AKTE_LOST,
-    retryText: AKTE_RETRY,
-  },
-];
+export function registerBuiltins() { builtins().forEach(registerCampaign); }
 
-/** Trägt die mitgelieferten Kampagnen im Regelkern ein. */
-export function registerBuiltins() { BUILTIN.forEach(registerCampaign); }
+/** Prüft eine eigene Kampagne; eingebaute Kennungen sind tabu. */
+export function checkOwn(source: string): CompileResult {
+  const r = compile(source);
+  if (r.campaign && isBuiltin(r.campaign.id)) {
+    return { campaign: null, warnings: r.warnings, errors: [{ line: 0, severity: 'fehler', message: `Die Kennung „${r.campaign.id}“ gehört zu einer mitgelieferten Kampagne. Bitte eine andere wählen.` }] };
+  }
+  return r;
+}
+
+/** Trägt gespeicherte eigene Kampagnen ein; was nicht (mehr) übersetzbar ist, bleibt außen vor. */
+export function registerOwn(sources: string[]): CampaignDef[] {
+  return sources.flatMap((s) => {
+    const r = checkOwn(s);
+    if (!r.campaign) return [];
+    registerCampaign(r.campaign);
+    return [r.campaign];
+  });
+}
+
+/** Fügt eine eigene Kampagne hinzu oder ersetzt die mit gleicher Kennung; liefert die neue Liste der Quelltexte. */
+export function addOwn(source: string, sources: string[]): { result: CompileResult; sources: string[] } {
+  const result = checkOwn(source);
+  if (!result.campaign) return { result, sources };
+  const id = result.campaign.id;
+  const kept = sources.filter((s) => checkOwn(s).campaign?.id !== id);
+  registerCampaign(result.campaign);
+  return { result, sources: [...kept, source] };
+}
+
+/** Entfernt eine eigene Kampagne; mitgelieferte bleiben. */
+export function removeOwn(id: string, sources: string[]): string[] {
+  if (isBuiltin(id)) return sources;
+  unregisterCampaign(id);
+  return sources.filter((s) => checkOwn(s).campaign?.id !== id);
+}
+
+export const ownCampaigns = () => campaigns().filter((c) => !isBuiltin(c.id));
+
+/** Quelltext zum Weitergeben: mitgelieferte im Original samt Kommentaren, eigene so, wie sie geladen wurden. */
+export function sourceOf(id: string, sources: string[]): string | null {
+  if (isBuiltin(id)) return BUILTIN_SOURCES[id];
+  return sources.find((s) => checkOwn(s).campaign?.id === id) ?? null;
+}

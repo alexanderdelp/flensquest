@@ -1,0 +1,64 @@
+-- Prüfstand: kleine, übersichtliche Pläne für Regeltests. Nicht zum Spielen gedacht.
+
+kampagne pruefstand
+  titel: Prüfstand
+  klappentext: Testkampagne mit allem, was die Regeln kennen.
+
+spielleiter
+  karte eile: Eile | Schneller.
+  karte zorn: Zorn | Härter.
+  karte flicken: Flicken | Heilen.
+  karte schiet: Schiet | Nass.
+  karte verstaerkung: Verstärkung | Kobold.
+  karte falle: Falle | Falle.
+  karte klau: Klau | Brötchen weg.
+  karte schlick: Schlick | Langsam.
+  karte knoellchen: Knöllchen | Punkt.
+  pause: Pause.
+
+kapitel Halle
+  ort: Prüfhalle
+  einleitung: Eine Halle mit allem.
+  abschluss: Geschafft.
+  auftrag: Hol das Logbuch und raus.
+  ziel: bergen Logbuch 📖
+  belohnung: 10
+  plan:
+    ############
+    #SSSS...#..#
+    #.......D.m#
+    #..f..t.#..#
+    #.T.....H..#
+    #......G#.k#
+    #X......####
+    ############
+  wenn start:
+    zeige Willkommen: Los geht es.
+  wenn tür 8,2 aufgeht:
+    zeige Nebenraum: Es raschelt.
+    rufe ratte 9,1
+  wenn knoellchen auftaucht:
+    zeige Kobold: Ein Kobold.
+  wenn ziel gefunden:
+    öre +5
+  wenn runde 3:
+    punkte +1
+    heile 2
+
+kapitel Endkampf
+  ort: Prüfkeller
+  einleitung: Der Klabauter wartet.
+  abschluss: Besiegt.
+  auftrag: Besiege den Klabauter.
+  ziel: besiegen klabauter
+  belohnung: 20
+  plan:
+    ##########
+    #SSSS....#
+    #........#
+    #......K.#
+    ##########
+  wenn endgegner halb:
+    zeige Wende: Er ruft Hilfe.
+    rufe moewe 8,1
+    öre -3

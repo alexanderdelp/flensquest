@@ -24,8 +24,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm test
+      - run: npm run test:coverage
       - run: npm run test:balance
+      - run: npm run kladde -- pruefe kampagnen/*.kladde
       - run: npm run build
       # E2E mit dem vorinstallierten Chrome des Runners; Playwright lädt keine Browser.
       - run: npm run test:e2e

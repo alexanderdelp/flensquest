@@ -45,7 +45,7 @@ Kosten habe ich bewusst nicht beziffert, weil sich Tarife ändern. Bitte vor dem
 
 ## Was schon vorbereitet ist
 
-- Alle Handlungen laufen als einfache Nachrichten über `dispatch` (`src/game/engine.ts`).
+- Alle Handlungen laufen als einfache Nachrichten über `dispatch` (`src/core/actions.ts`).
 - Der komplette Spielstand ist als JSON übertragbar.
 - Gleicher Startwert und gleiche Handlungen ergeben auf jedem Gerät denselben Spielstand. Das ist per Test abgesichert.
 - `src/net/transport.ts` beschreibt Nachrichten, Sitze und eine lokale Umsetzung. Für die Netzvariante fehlt nur der konkrete Anschluss.

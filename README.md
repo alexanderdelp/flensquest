@@ -22,6 +22,8 @@ npm run build
 - **Der Fall Hafenlogbuch:** fünf Kapitel, der ursprüngliche Einstieg.
 - **Die Akte Förde:** sechs Missionen rund um den gestohlenen Punkte-Stempel.
 
+Beide sind in der Sprache **Kladde** geschrieben und liegen in [`kampagnen/`](kampagnen). Eigene Kampagnen schreibt man genauso und lädt sie im Spiel unter „Neues Abenteuer → 📂 Eigene Kampagne laden“; jede Kampagne lässt sich dort auch als Datei speichern und weitergeben. Die Sprache ist in [`docs/kladde.md`](docs/kladde.md) beschrieben.
+
 ## Figuren
 
 - **Frauke**, Fördefischerin: FlensNetz fesselt einen Gegner aus bis zu 3 Feldern.
@@ -46,12 +48,21 @@ Geräusche und das Ambiente erzeugt der Browser selbst, es gibt keine Audiodatei
 
 ## Aufbau
 
-- `src/game/data.ts`: Figuren, Gegner, Kapitel, Karten, Spielleiterkarten und ihre Kosten
-- `src/game/akte.ts`, `src/game/campaigns.ts`: Story-Kampagne und Kampagnenliste
-- `src/ui/board.ts`, `src/ui/sprites.ts`, `src/ui/projection.ts`: Brett, Pixel-Art und Perspektive
-- `src/game/engine.ts`: Spielregeln und Spielleiter, ohne Abhängigkeit zur Oberfläche
-- `src/main.ts`, `src/ui/style.css`: Oberfläche
-- `tests/engine.test.ts`: Regeltests und ein Bot, der alle Kapitel durchspielt
+Schichten mit festen Grenzen, ausführlich in [`docs/architektur.md`](docs/architektur.md):
+
+- `src/content`: Figuren, Gegner, Kiosk, Kartenkosten und Regelwerte als Daten
+- `src/core`: Regelkern in Modulen, ohne DOM, Speicher oder Zeit
+- `src/kladde`: die Kampagnensprache (Übersetzen, Prüfen, Zurückschreiben)
+- `src/campaigns` und `kampagnen/`: mitgelieferte und eigene Kampagnen
+- `src/ui`: Bildschirme, Spielansicht, Brett, Pixel-Art, Ton
+- `src/net`, `src/platform`: Verbindung zwischen Geräten und Speicher
+- `tests/`: Unit, Integration, Balance-Bot und E2E mit Playwright
+
+```bash
+npm test               # Unit und Integration
+npm run test:e2e       # Browser-Tests
+npm run test:balance   # Bot
+```
 
 ## Telegram
 
