@@ -42,6 +42,8 @@ const SHOT_COLOR: Record<string, string> = {
 };
 
 const WALL = 0.62;
+/** Sortierschlüssel für Aufrechtes: nach Wänden und Türen der eigenen Reihe, vor der nächsten Reihe. */
+const UPRIGHT = 1.05;
 const DOOR = 0.78;
 
 interface Box {
@@ -662,7 +664,12 @@ export class Board {
     this.ctx.globalAlpha = 1;
   }
 
-  /** Von hinten nach vorn zeichnen, damit Wände wirklich davorstehen können. */
+  /**
+   * Von hinten nach vorn zeichnen, Reihe für Reihe. Innerhalb einer Reihe y:
+   * Türen ohne Nachbarwände (y + 0.6), Wände (y + 1), Durchgangstüren samt Wandstreifen (y + 1.02),
+   * danach alles Aufrechte, das auf der Reihe steht (y + 1.05 Gegenstände, y + 1.06 Figuren).
+   * So stehen Figuren im Durchgang vor Tür und Zarge, Wände der nächsten Reihe (y + 2) aber weiter davor.
+   */
   private scene(g: Game) {
     const list: { key: number; draw: () => void }[] = [];
     const cx = this.view.cx;
@@ -676,17 +683,17 @@ export class Board {
       if (t === 'D' || t === 'O') list.push({ key: y + (across ? 1.02 : 0.6), draw: () => this.drawDoor(g, x, y) });
     }
     for (const c of g.props) {
-      if (g.seen[c.y][c.x]) list.push({ key: c.y + 0.7, draw: () => this.place(objects[c.kind](), c) });
+      if (g.seen[c.y][c.x]) list.push({ key: c.y + UPRIGHT, draw: () => this.place(objects[c.kind](), c) });
     }
     for (const c of g.chests) {
-      if (g.seen[c.y][c.x]) list.push({ key: c.y + 0.7, draw: () => this.place(objects.chest(), c) });
+      if (g.seen[c.y][c.x]) list.push({ key: c.y + UPRIGHT, draw: () => this.place(objects.chest(), c) });
     }
     if (g.goal && !g.goalTaken && g.seen[g.goal.y][g.goal.x]) {
       const s = this.goalSprite(g), p = g.goal;
-      if (s) list.push({ key: p.y + 0.7, draw: () => this.place(s, p) });
+      if (s) list.push({ key: p.y + UPRIGHT, draw: () => this.place(s, p) });
     }
     const actors = [...this.vis.values()];
-    actors.forEach((v, n) => list.push({ key: v.y + 0.75, draw: () => this.drawActor(g, v, n, false) }));
+    actors.forEach((v, n) => list.push({ key: v.y + UPRIGHT + 0.01, draw: () => this.drawActor(g, v, n, false) }));
     list.sort((a, c) => a.key - c.key).forEach((i) => i.draw());
     // Figuren hinter Wänden bleiben schwach sichtbar.
     actors.forEach((v, n) => {
