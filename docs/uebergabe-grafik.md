@@ -1,6 +1,6 @@
 # Übergabe: Grafiken in höherer Auflösung und Bildqualität
 
-Stand: Version 0.6.1, 7. November 2026. Dieses Dokument ist der Einstieg für den Agenten, der die Grafik überarbeitet. Erst `CLAUDE.md`, dann `docs/architektur.md`, dann hier weiterlesen.
+Stand: Version 0.6.2, 7. November 2026. Dieses Dokument ist der Einstieg für den Agenten, der die Grafik überarbeitet. Erst `CLAUDE.md`, dann `docs/architektur.md`, dann hier weiterlesen.
 
 ## Auftrag
 

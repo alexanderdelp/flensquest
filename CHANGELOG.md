@@ -3,6 +3,9 @@
 Version major.minor.build: major bei großen Umbrüchen, minor bei neuen Funktionen, build bei jeder sonstigen Änderung.
 Der oberste Eintrag muss zur Version in `package.json` passen; ein Test prüft das.
 
+## 0.6.2
+- Test für das Doku-Beispiel läuft auch mit Windows-Zeilenenden.
+
 ## 0.6.1
 - Übergabedokument für die Überarbeitung der Grafik: `docs/uebergabe-grafik.md`.
 
