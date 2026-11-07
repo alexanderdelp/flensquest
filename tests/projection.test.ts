@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeView, project, unproject } from '../src/ui/projection';
+import { applyZoom, makeView, panLimit, project, unproject } from '../src/ui/projection';
 
 describe('Kamera', () => {
   it('Bodenpunkte lassen sich aus Bildschirmkoordinaten zurückrechnen', () => {
@@ -34,5 +34,21 @@ describe('Kamera', () => {
         }
       }
     }
+  });
+
+  it('Zoom vergrößert um die Mitte, Bodenpunkte bleiben zurückrechenbar', () => {
+    const base = makeView(24, 14, 55, 856, 760, 0.62);
+    const z = applyZoom(base, 2, 0, 0, 856, 760);
+    const a = project(base, 12, 7), b = project(z, 12, 7);
+    expect(b.x - 428).toBeCloseTo((a.x - 428) * 2, 5);
+    expect(b.y - 380).toBeCloseTo((a.y - 380) * 2, 5);
+    const back = unproject(z, b.x, b.y);
+    expect(back.x).toBeCloseTo(12, 5);
+    expect(back.y).toBeCloseTo(7, 5);
+  });
+
+  it('ohne Zoom gibt es nichts zu verschieben', () => {
+    expect(panLimit(1, 800)).toBe(0);
+    expect(panLimit(3, 800)).toBe(800);
   });
 });
