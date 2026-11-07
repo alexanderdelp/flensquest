@@ -274,10 +274,11 @@ export class Board {
     this.poly([this.p(x0, y0, h), this.p(x1, y0, h), this.p(x1, y1, h), this.p(x0, y1, h)], b.top);
   }
 
-  private drawWall(g: Game, x: number, y: number) {
+  /** Wandblock; mit from > 0 nur der vordere Streifen ab dieser Tiefe, etwa vor einem Türblatt. */
+  private drawWall(g: Game, x: number, y: number, from = 0) {
     const th = THEMES[g.theme], v = hash(x, y);
     const culled = { e: this.solid(g, x + 1, y), w: this.solid(g, x - 1, y), s: this.solid(g, x, y + 1) };
-    this.box({ x0: x, y0: y, x1: x + 1, y1: y + 1, h: WALL, top: th.top, side: th.mortar, front: wallFace(g.theme, v), culled });
+    this.box({ x0: x, y0: y + from, x1: x + 1, y1: y + 1, h: WALL, top: th.top, side: th.mortar, front: wallFace(g.theme, v), culled });
     if (!culled.s && v % 7 === 0) {
       const f = this.p(x + 0.5, y + 1, WALL * 0.62), s = f.s * 0.5;
       if (this.angle < 85) this.ctx.drawImage(objects.lanterne(Math.floor(this.time / 260) + x), f.x - s / 2, f.y - s / 2, s, s);
@@ -296,6 +297,11 @@ export class Board {
       this.box({ ...leaf, x0: x + 0.03, y0: y + 0.08, x1: x + 0.13, y1: y + 0.92, front: null });
     } else {
       this.box({ ...leaf, x0: x + 0.08, y0: y + 0.03, x1: x + 0.92, y1: y + 0.13, front: null });
+    }
+    // Die Tür steht im Durchgang: Was von den Nachbarwänden vor dem Blatt liegt, verdeckt es, der Rest liegt dahinter.
+    if (northSouth) {
+      const front = open ? 0.92 : 0.58;
+      for (const nx of [x - 1, x + 1]) if (g.seen[y][nx]) this.drawWall(g, nx, y, front);
     }
   }
 
@@ -650,7 +656,9 @@ export class Board {
       const t = g.tiles[y][x];
       const toward = 0.01 * (1 - Math.abs(x + 0.5 - cx) / g.w);
       if (t === '#' || t === 'H') list.push({ key: y + 1 + toward, draw: () => this.drawWall(g, x, y) });
-      if (t === 'D' || t === 'O') list.push({ key: y + 0.6, draw: () => this.drawDoor(g, x, y) });
+      // Tür zwischen Wänden links und rechts: nach diesen Wänden zeichnen, sonst übermalen sie das Blatt.
+      const across = this.solid(g, x - 1, y) && this.solid(g, x + 1, y);
+      if (t === 'D' || t === 'O') list.push({ key: y + (across ? 1.02 : 0.6), draw: () => this.drawDoor(g, x, y) });
     }
     for (const c of g.props) {
       if (g.seen[c.y][c.x]) list.push({ key: c.y + 0.7, draw: () => this.place(objects[c.kind](), c) });
