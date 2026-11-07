@@ -179,6 +179,25 @@ describe('Regeln', () => {
     expect(m.blind).toBe(false);
   });
 
+  it('Katzenohren retten einmal je Kapitel vor dem Sturz', () => {
+    const c = E.newCampaign(['joern', 'maren']);
+    c.oere = 100;
+    expect(E.buy(c, 'joern', E.SHOP.find((s) => s.id === 'katzenohren')!)).toBe(true);
+    const g = E.startChapter(c, 1);
+    const h = g.heroes[0];
+    h.hp = 2;
+    g.traps = [{ x: h.x, y: h.y + 1 }];
+    E.moveTo(g, h.x, h.y + 1);
+    expect(h.hp).toBe(1);
+    expect(h.down).toBe(false);
+    expect(h.pfoten).toBe(false);
+    const punkte = g.punkte;
+    g.traps = [{ x: h.x + 1, y: h.y }];
+    E.moveTo(g, h.x + 1, h.y);
+    expect(h.down).toBe(true);
+    expect(g.punkte).toBeGreaterThan(punkte);
+  });
+
   it('Laden: einmalige Ausrüstung nur einmal, Werte steigen', () => {
     const c = E.newCampaign(['joern']);
     c.oere = 200;

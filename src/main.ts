@@ -252,7 +252,7 @@ function panel() {
     <p class="goal small">${ch.goalText}${g.goalTaken && ch.goal.type === 'bergen' ? ' ✔ gefunden' : ''}</p>
     <div class="party">${g.heroes.map((o, i) => `<div class="pc ${i === g.turn && playing ? 'on' : ''} ${o.down ? 'down' : ''}">
       <img class="dot" alt="" src="${portrait(o)}">
-      <span><b>${HEROES[o.id].name}</b><br><small>❤️ ${o.hp}/${o.maxHp} · 🥪 ${o.food} · ✨ ${o.charges}</small></span>
+      <span><b>${HEROES[o.id].name}</b><br><small>❤️ ${o.hp}/${o.maxHp} · 🥪 ${o.food} · ✨ ${o.charges}${o.pfoten ? ' · 🐾' : ''}</small></span>
     </div>`).join('')}</div>
     ${g.status === 'gm' && !g.gmHuman ? '<p class="turn">Der Oberpunktezähler stempelt …</p>' : g.status === 'gm' ? gmHint(g) : heroTurn(g)}
     ${g.status === 'gm' && g.gmHuman ? gmButtons(g) : heroButtons(g, playing)}

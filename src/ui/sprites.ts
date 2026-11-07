@@ -149,10 +149,19 @@ function moodFace(p: Painter, d: number, mood: number) {
   p(9, 5 + d, 14, 2, '#f4f1e6'); p(21, 5 + d, 3, 1, '#d8d3c4'); p(23, 6 + d, 2, 1, '#d8d3c4');
 }
 
+function catEars(p: Painter, d: number) {
+  const fur = '#3a3440', pink = '#f29ab8';
+  for (const x of [8, 19]) {
+    p(x, 3 + d, 5, 3, fur); p(x + 1, 2 + d, 3, 1, fur); p(x + 2, 1 + d, 1, 1, fur);
+    p(x + 1, 4 + d, 3, 2, pink); p(x + 2, 3 + d, 1, 1, pink);
+  }
+}
+
 export function heroSprite(id: HeroId, gear: string[], frame: number, flip = false, mood = 0) {
   return sprite(`h:${id}:${[...gear].sort().join()}:${frame}:${mood}`, (p) => {
     HERO[id](p, frame, gear);
     moodFace(p, frame === 1 ? 1 : 0, mood);
+    if (gear.includes('katzenohren')) catEars(p, frame === 1 ? 1 : 0);
   }, flip);
 }
 
@@ -299,6 +308,11 @@ export const objects = {
   }),
   bootshaken: () => sprite('o:haken', (p) => {
     p(15, 7, 2, 23, '#8a5a2b'); p(15, 4, 8, 3, '#d9a441'); p(21, 4, 3, 7, '#d9a441'); p(18, 9, 4, 2, '#d9a441');
+  }),
+  katzenohren: () => sprite('o:katze', (p) => {
+    p(6, 24, 20, 3, '#3a3440'); p(5, 22, 2, 3, '#3a3440'); p(25, 22, 2, 3, '#3a3440');
+    catEars((x, y, w, h, c) => p(x - 2, y + 11, w + 1, h + 1, c), 0);
+    catEars((x, y, w, h, c) => p(x + 2, y + 11, w + 1, h + 1, c), 0);
   }),
   gummistiefel: () => sprite('o:stiefel', (p) => {
     p(11, 6, 8, 18, '#2e8b57'); p(11, 22, 15, 5, '#2e8b57'); p(11, 27, 16, 2, '#1d5c39'); p(11, 6, 8, 2, '#57b47f');
