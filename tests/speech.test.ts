@@ -18,6 +18,10 @@ describe('Vorlesetext', () => {
     expect(speechText('— Der Oberpunktezähler ist dran —')).toBe('Der Oberpunktezähler ist dran');
   });
 
+  it('lässt die Würfel in Meldungen weg', () => {
+    expect(speechText('Pommes-Möwe trifft Juni (3+6, nötig 8): 1 Schaden')).toBe('Pommes-Möwe trifft Juni: 1 Schaden');
+  });
+
   it('doppelte Satzzeichen verschwinden', () => {
     expect(speechText('Wer geht mit in den Keller?. Los.. ')).toBe('Wer geht mit in den Keller? Los.');
   });
