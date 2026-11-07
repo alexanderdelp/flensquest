@@ -10,7 +10,7 @@ Ausgangspunkt war der Wunsch nach einem Spiel im Stil klassischer Dungeon-Bretts
 ## Designkriterien
 - **Ton:** augenzwinkernd, freundlich, norddeutsch-trocken, Deutsch und kurz. Lokalkolorit aus Flensburg ist der Kern des Spiels (Förde, Rum, Möwen, Schietwetter, Fischbrötchen, Punkte in Flensburg).
 - **Namen:** Einige zentrale Begriffe dürfen mit „Flens“ beginnen (FlensQuest, FlensNetz, FlensLogbuch), aber nicht alle. Keine Logos oder Markenauftritte Dritter.
-- **Kernidee Punkte:** Die Punkte in Flensburg sind die Uhr des Spiels. Fallen, Knöllchen, gestürzte Figuren, Ereignisse und der Stempel jede dritte Runde bringen Punkte. Bei 8 ist der Lappen weg und das Kapitel verloren.
+- **Kernidee Punkte:** Die Punkte in Flensburg sind die Uhr des Spiels. Fallen, Knöllchen, gestürzte Figuren, Ereignisse und der Stempel jede vierte Runde bringen Punkte. Bei 8 ist der Lappen weg und das Kapitel verloren.
 - **Zugsystem:** 3 Tiden je Zug, solo 4. Eine Tide bringt Schritte oder bezahlt eine Aktion. Pro Zug ein Angriff und ein Spezialkönnen. Türen öffnen ist kostenlos.
 - **Würfel:** 2W6 + Angriff gegen 7 + Rüstung, 6+6 trifft doppelt, 1+1 trifft nie.
 - **Erkundung:** Räume werden erst sichtbar, wenn eine Tür aufgeht. Gegner werden erst aktiv, wenn ihr Feld aufgedeckt ist. Verborgene Türen und Fallen findet man mit Suchen.

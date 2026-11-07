@@ -22,7 +22,7 @@ npm run build
 - **3 Tiden je Zug:** Eine Tide bringt dich so viele Felder weit wie dein Schritt-Wert oder bezahlt eine Aktion (Angriff, Suchen, Truhe, Essen, Spezialkönnen).
 - **Angriff:** 2 Würfel + Angriff gegen 7 + Rüstung. Einmal je Zug. 6+6 trifft doppelt, 1+1 nie.
 - **Türen** öffnen ist kostenlos. **Suchen** entschärft Fallen und findet verborgene Türen in der Nähe.
-- **Punkte in Flensburg:** Fallen, Knöllchen, gestürzte Figuren und der Stempel jede dritte Runde bringen Punkte. Bei 8 ist der Lappen weg und das Kapitel verloren.
+- **Punkte in Flensburg:** Fallen, Knöllchen, gestürzte Figuren und der Stempel jede vierte Runde bringen Punkte. Bei 8 ist der Lappen weg und das Kapitel verloren.
 - **Hafenkiosk:** Zwischen den Kapiteln gibt es Friesennerz, Bootshaken, Gummistiefel und Fischbrötchen für Öre.
 
 ## Aufbau

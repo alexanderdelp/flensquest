@@ -23,7 +23,7 @@ interface Floater { x: number; y: number; text: string; color: string; start: nu
 interface Shot { x: number; y: number; color: string; size: number }
 
 const SHOT_COLOR: Record<string, string> = {
-  frauke: '#dfe9ee', maren: '#fbfbf5', netz: '#f5ebcd', stempel: '#b5302a', juni: '#ffb545', licht: '#ffe27a',
+  frauke: '#dfe9ee', maren: '#fbfbf5', netz: '#f5ebcd', obermeister: '#b5302a', schmuggler: '#3f7a3a', juni: '#ffb545', licht: '#ffe27a',
 };
 
 const WALL = 0.62;
@@ -483,6 +483,9 @@ export class Board {
       const toward = 0.01 * (1 - Math.abs(x + 0.5 - cx) / g.w);
       if (t === '#' || t === 'H') list.push({ key: y + 1 + toward, draw: () => this.drawWall(g, x, y) });
       if (t === 'D' || t === 'O') list.push({ key: y + 0.6, draw: () => this.drawDoor(g, x, y) });
+    }
+    for (const c of g.props) {
+      if (g.seen[c.y][c.x]) list.push({ key: c.y + 0.7, draw: () => this.place(objects[c.kind](), c) });
     }
     for (const c of g.chests) {
       if (g.seen[c.y][c.x]) list.push({ key: c.y + 0.7, draw: () => this.place(objects.chest(), c) });
