@@ -22,7 +22,7 @@ interface Floater { x: number; y: number; text: string; color: string; start: nu
 interface Shot { x: number; y: number; color: string; size: number }
 
 const SHOT_COLOR: Record<string, string> = {
-  frauke: '#dfe9ee', maren: '#fbfbf5', netz: '#f5ebcd', obermeister: '#b5302a', schmuggler: '#3f7a3a', juni: '#ffb545', licht: '#ffe27a',
+  frauke: '#dfe9ee', maren: '#fbfbf5', netz: '#f5ebcd', obermeister: '#b5302a', oberarchivar: '#b5302a', schmuggler: '#3f7a3a', kalle: '#7a3a14', fiete: '#2b3a5a', punktepruefer: '#b5302a', proehl: '#9fd8e8', juni: '#ffb545', licht: '#ffe27a',
 };
 
 const WALL = 0.62;
@@ -297,6 +297,7 @@ export class Board {
 
   private goalSprite(g: Game) {
     const goal = chapterOf(g).goal;
+    if (goal.sprite) return objects[goal.sprite]();
     if (goal.type !== 'bergen') return null;
     if (goal.item.includes('Schlüssel')) return objects.schluessel();
     if (goal.item.includes('Karte')) return objects.karte();

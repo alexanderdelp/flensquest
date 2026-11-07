@@ -1,5 +1,7 @@
 export type HeroId = 'frauke' | 'joern' | 'maren' | 'hinnerk' | 'juni';
-export type MonsterId = 'moewe' | 'knoellchen' | 'rumgeist' | 'qualle' | 'klabauter' | 'obermeister' | 'ratte' | 'schmuggler' | 'krabbe';
+export type MonsterId = 'moewe' | 'knoellchen' | 'rumgeist' | 'qualle' | 'klabauter' | 'obermeister' | 'ratte' | 'schmuggler' | 'krabbe'
+  | 'moewenraeuber' | 'kellerkassierer' | 'punktepruefer' | 'schlurfer'
+  | 'kalle' | 'fiete' | 'krischan' | 'waechter' | 'proehl' | 'oberarchivar';
 
 export interface HeroDef {
   id: HeroId;
@@ -57,6 +59,8 @@ export interface MonsterDef {
   dmg: number;
   range: number;
   reward: number;
+  /** Endgegner werden solo weniger stark abgeschwächt. */
+  boss?: boolean;
 }
 
 export const MONSTERS: Record<MonsterId, MonsterDef> = {
@@ -67,13 +71,25 @@ export const MONSTERS: Record<MonsterId, MonsterDef> = {
   ratte: { id: 'ratte', name: 'Hafenratte', icon: '🐀', hp: 1, att: 1, arm: 0, spd: 6, dmg: 1, range: 1, reward: 2 },
   schmuggler: { id: 'schmuggler', name: 'Rumschmuggler', icon: '🍾', hp: 4, att: 2, arm: 1, spd: 3, dmg: 1, range: 3, reward: 7 },
   krabbe: { id: 'krabbe', name: 'Panzerkrabbe', icon: '🦀', hp: 5, att: 2, arm: 3, spd: 2, dmg: 2, range: 1, reward: 8 },
-  klabauter: { id: 'klabauter', name: 'Klabauter', icon: '😈', hp: 7, att: 3, arm: 2, spd: 4, dmg: 2, range: 1, reward: 20 },
-  obermeister: { id: 'obermeister', name: 'Oberpunktezähler', icon: '👔', hp: 16, att: 5, arm: 3, spd: 3, dmg: 3, range: 3, reward: 60 },
+  klabauter: { id: 'klabauter', name: 'Klabauter', icon: '😈', hp: 7, att: 3, arm: 2, spd: 4, dmg: 2, range: 1, reward: 20, boss: true },
+  obermeister: { id: 'obermeister', name: 'Oberpunktezähler', icon: '👔', hp: 12, att: 4, arm: 3, spd: 3, dmg: 2, range: 3, reward: 60, boss: true },
+  moewenraeuber: { id: 'moewenraeuber', name: 'Möwenräuber', icon: '🐦', hp: 3, att: 2, arm: 0, spd: 5, dmg: 1, range: 1, reward: 4 },
+  kellerkassierer: { id: 'kellerkassierer', name: 'Kellerkassierer', icon: '💰', hp: 5, att: 3, arm: 1, spd: 3, dmg: 2, range: 1, reward: 9 },
+  punktepruefer: { id: 'punktepruefer', name: 'Punkteprüfer', icon: '📋', hp: 4, att: 2, arm: 2, spd: 3, dmg: 1, range: 3, reward: 9 },
+  schlurfer: { id: 'schlurfer', name: 'Förde-Schlurfer', icon: '🌊', hp: 7, att: 2, arm: 1, spd: 2, dmg: 2, range: 1, reward: 8 },
+  kalle: { id: 'kalle', name: 'Kai-Kalle', icon: '🍾', hp: 9, att: 3, arm: 1, spd: 3, dmg: 2, range: 3, reward: 20, boss: true },
+  fiete: { id: 'fiete', name: 'Fälscher-Fiete', icon: '🖋️', hp: 10, att: 3, arm: 2, spd: 3, dmg: 2, range: 3, reward: 25, boss: true },
+  krischan: { id: 'krischan', name: 'Hauptmann Krischan', icon: '🐦', hp: 11, att: 4, arm: 1, spd: 5, dmg: 2, range: 1, reward: 30, boss: true },
+  waechter: { id: 'waechter', name: 'Archivwächter', icon: '🗄️', hp: 13, att: 4, arm: 3, spd: 2, dmg: 3, range: 1, reward: 35, boss: true },
+  proehl: { id: 'proehl', name: 'Pumpenmeister Pröhl', icon: '🔧', hp: 13, att: 4, arm: 2, spd: 3, dmg: 2, range: 2, reward: 40, boss: true },
+  oberarchivar: { id: 'oberarchivar', name: 'Oberarchivar', icon: '🔏', hp: 20, att: 5, arm: 3, spd: 3, dmg: 3, range: 3, reward: 80, boss: true },
 };
 
 export const MONSTER_CHARS: Record<string, MonsterId> = {
   m: 'moewe', k: 'knoellchen', r: 'rumgeist', q: 'qualle', K: 'klabauter', B: 'obermeister',
   a: 'ratte', s: 'schmuggler', c: 'krabbe',
+  w: 'moewenraeuber', e: 'kellerkassierer', p: 'punktepruefer', u: 'schlurfer',
+  1: 'kalle', 2: 'fiete', 3: 'krischan', 4: 'waechter', 5: 'proehl', 6: 'oberarchivar',
 };
 
 export interface ShopItem {
@@ -93,7 +109,17 @@ export const SHOP: ShopItem[] = [
   { id: 'katzenohren', name: 'Katzenohren', icon: '🐾', price: 70, text: 'Einmal je Kapitel landest du auf den Pfoten: Statt zu stürzen bleibt 1 Lebenspunkt', once: true },
 ];
 
-export type Goal = { type: 'bergen'; item: string; icon: string } | { type: 'besiegen' };
+export type GoalSprite = 'logbuch' | 'schluessel' | 'karte' | 'akte' | 'feder' | 'stempel';
+
+/** bergen: Gegenstand zum Ausgang bringen; besiegen: Endgegner besiegen. Beides lässt sich kombinieren. */
+export type Goal =
+  | { type: 'bergen'; item: string; icon: string; sprite?: GoalSprite; boss?: MonsterId }
+  | { type: 'besiegen'; boss: MonsterId; item?: string; icon?: string; sprite?: GoalSprite };
+
+export interface Spawn { kind: MonsterId; x: number; y: number }
+
+/** Text beim Öffnen einer Tür, auf Wunsch mit einer Überraschung. */
+export interface Note { at: [number, number][]; title: string; text: string; spawn?: Spawn[] }
 
 export interface Chapter {
   title: string;
@@ -106,6 +132,14 @@ export interface Chapter {
   map: string[];
   /** Raumthema; ohne Angabe die Kapitelnummer. */
   theme?: number;
+  /** Ausgangslage, Überleitung und Raumtexte nutzt die Story-Kampagne. */
+  situation?: string;
+  bridge?: string;
+  notes?: Note[];
+  /** Beschreibung beim ersten Auftauchen eines Gegners. */
+  foes?: Partial<Record<MonsterId, string>>;
+  /** Wende im Endkampf, sobald der Endgegner die Hälfte verloren hat. */
+  phase?: { title: string; text: string; spawn: Spawn[] };
 }
 
 /*
@@ -144,7 +178,7 @@ export const CHAPTERS: Chapter[] = [
     intro: 'In den Höfen der Roten Straße lagert seit Jahrhunderten Rum. Neuerdings lagert dort auch ein Klabauter, der jede Flasche „beschlagnahmt". Hinnerk ist persönlich beleidigt.',
     outro: 'Der Klabauter ist vertrieben, zurück bleibt ein Bußgeldbescheid mit dem Absender „Unterm Nordertor". Wer schreibt so etwas?',
     goalText: 'Besiege den Klabauter 😈.',
-    goal: { type: 'besiegen' },
+    goal: { type: 'besiegen', boss: 'klabauter' },
     reward: 40,
     map: [
       '########################',
@@ -219,7 +253,7 @@ export const CHAPTERS: Chapter[] = [
     intro: 'Karteikästen bis zur Decke. Hier sitzt der Oberpunktezähler und sammelt seit Jahrzehnten Punkte in Flensburg. Heute will er eure. Acht Stück, dann ist der Lappen weg, und zwar für die ganze Förde.',
     outro: 'Der Oberpunktezähler stempelt ein letztes Mal, dann hört man nur noch die Möwen. Flensburg atmet auf. Moin!',
     goalText: 'Besiege den Oberpunktezähler 👔.',
-    goal: { type: 'besiegen' },
+    goal: { type: 'besiegen', boss: 'obermeister' },
     reward: 100,
     map: [
       '########################',
@@ -232,7 +266,7 @@ export const CHAPTERS: Chapter[] = [
       '#x....#...c.......f#...#',
       '##D###D######D#####D####',
       '#...#.f....#...s..#.a..#',
-      '#.t.D..K...D..r...D..m.#',
+      '#.t.D..r...D..r...D..m.#',
       '#...#......###D####....#',
       '#.T.#ft....#B.....D..rx#',
       '########################',

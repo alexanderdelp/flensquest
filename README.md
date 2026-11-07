@@ -17,6 +17,11 @@ npm test
 npm run build
 ```
 
+## Kampagnen
+
+- **Der Fall Hafenlogbuch:** fünf Kapitel, der ursprüngliche Einstieg.
+- **Die Akte Förde:** sechs Missionen rund um den gestohlenen Punkte-Stempel.
+
 ## Regeln in Kürze
 
 - **3 Tiden je Zug:** Eine Tide bringt dich so viele Felder weit wie dein Schritt-Wert oder bezahlt eine Aktion (Angriff, Suchen, Truhe, Essen, Spezialkönnen).
@@ -32,6 +37,7 @@ Geräusche und das Ambiente erzeugt der Browser selbst, es gibt keine Audiodatei
 ## Aufbau
 
 - `src/game/data.ts`: Figuren, Gegner, Kapitel, Karten, Ereignisse
+- `src/game/akte.ts`, `src/game/campaigns.ts`: Story-Kampagne und Kampagnenliste
 - `src/game/engine.ts`: Spielregeln und Spielleiter, ohne Abhängigkeit zur Oberfläche
 - `src/main.ts`, `src/ui/style.css`: Oberfläche
 - `tests/engine.test.ts`: Regeltests und ein Bot, der alle Kapitel durchspielt
