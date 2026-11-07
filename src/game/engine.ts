@@ -8,7 +8,7 @@ export interface Pos { x: number; y: number }
 export interface CampaignHero {
   id: HeroId; att: number; arm: number; spd: number; food: number; gear: string[];
 }
-export interface Campaign { heroes: CampaignHero[]; oere: number; chapter: number }
+export interface Campaign { heroes: CampaignHero[]; oere: number; chapter: number; gmHuman?: boolean }
 
 export interface Hero extends CampaignHero, Pos {
   hp: number; maxHp: number; charges: number; down: boolean;
@@ -28,8 +28,19 @@ export type Fx =
   | { t: 'card'; name: string; text: string }
   | { t: 'punkte'; n: number; total: number; why: string };
 
+/** Jede Spielhandlung als einfache Nachricht: gleiche Regeln lokal und zwischen Geräten. */
+export type Action =
+  | { type: 'move' | 'door' | 'chest'; x: number; y: number }
+  | { type: 'attack'; uid: number }
+  | { type: 'special'; uid?: number }
+  | { type: 'search' | 'eat' | 'end' | 'gmEnd' }
+  | { type: 'gmMove'; uid: number; x: number; y: number }
+  | { type: 'gmAttack'; uid: number; hero: HeroId }
+  | { type: 'gmCard'; index: number };
+
 export interface Game {
   fx: Fx[];
+  gmHuman: boolean; gmActed: number[]; gmMoved: number[]; gmCards: number[]; gmCardPlayed: boolean;
   chapter: number; w: number; h: number;
   tiles: string[][]; seen: boolean[][];
   heroes: Hero[]; monsters: Monster[];
@@ -57,9 +68,9 @@ function rand(g: Game): number {
 }
 export const d6 = (g: Game) => 1 + Math.floor(rand(g) * 6);
 
-export function newCampaign(ids: HeroId[]): Campaign {
+export function newCampaign(ids: HeroId[], gmHuman = false): Campaign {
   return {
-    oere: 20, chapter: 0,
+    oere: 20, chapter: 0, gmHuman,
     heroes: ids.map((id) => {
       const d = HEROES[id];
       return { id, att: d.att, arm: d.arm, spd: d.spd, food: 1, gear: [] };
@@ -74,7 +85,8 @@ export function startChapter(c: Campaign, seed = Date.now()): Game {
   const n = c.heroes.length;
   const g: Game = {
     chapter: c.chapter, w: ch.map[0].length, h: ch.map.length,
-    fx: [], tiles: [], seen: [], heroes: [], monsters: [], chests: [], traps: [],
+    fx: [], gmHuman: !!c.gmHuman, gmActed: [], gmMoved: [], gmCards: [], gmCardPlayed: false,
+    tiles: [], seen: [], heroes: [], monsters: [], chests: [], traps: [],
     goal: null, goalTaken: false, exit: null,
     turn: 0, tiden: 0, steps: 0, attacked: false, specialUsed: false,
     round: 1, punkte: 0, oere: c.oere, nextUid: 1,
@@ -420,6 +432,7 @@ export function endTurn(g: Game) {
     if (!g.heroes[i].down) { g.turn = i; beginTurn(g); return; }
   }
   g.status = 'gm';
+  if (g.gmHuman) gmStart(g);
 }
 
 function pathToward(g: Game, m: Monster, targets: Hero[], range: number): Pos[] | null {
@@ -452,9 +465,12 @@ function monsterAct(g: Game, m: Monster) {
     g.fx.push({ t: 'move', who: mkey(m), path: walk });
     m.x = walk[walk.length - 1].x; m.y = walk[walk.length - 1].y;
   }
-  const t = living(g).filter((h) => dist(m, h) <= d.range && lineOfSight(g, m, h))
-    .sort((a, b) => a.hp - b.hp)[0];
-  if (!t) return;
+  const t = gmTargets(g, m).sort((a, b) => a.hp - b.hp)[0];
+  if (t) strike(g, m, t);
+}
+
+function strike(g: Game, m: Monster, t: Hero) {
+  const d = MONSTERS[m.kind];
   const r = rollAttack(g, d.att, t.arm);
   log(g, `${d.name} → ${HEROES[t.id].name}: 🎲 ${r.a}+${r.b}+${d.att} = ${r.total} (nötig ${r.need}) ${r.hit ? `Treffer, ${d.dmg} Schaden` : 'daneben'}`);
   g.fx.push({ t: 'attack', who: mkey(m), target: hkey(t), shot: d.range > 1 ? 'stempel' : null, a: r.a, b: r.b, total: r.total, need: r.need, hit: r.hit, dmg: d.dmg });
@@ -466,8 +482,10 @@ function monsterAct(g: Game, m: Monster) {
   }
 }
 
-function playEvent(g: Game) {
-  const e = EVENTS[Math.floor(rand(g) * EVENTS.length)];
+const drawCard = (g: Game) => Math.floor(rand(g) * EVENTS.length);
+
+function playEvent(g: Game, index: number) {
+  const e = EVENTS[index];
   log(g, `📜 ${e.name}: ${e.text}`);
   g.fx.push({ t: 'card', name: e.name, text: e.text });
   if (e.id === 'moin') living(g).forEach((h) => {
@@ -503,12 +521,19 @@ export function* gmTurn(g: Game): Generator<void> {
     yield;
     if (g.status !== 'gm') return;
   }
-  playEvent(g);
-  if (g.round % 3 === 0) {
-    log(g, 'Der Stempel fällt: 1 Punkt in Flensburg.');
-    addPunkte(g, 1, 'Der Stempel fällt');
-  }
+  playEvent(g, drawCard(g));
+  stamp(g);
   yield;
+  nextRound(g);
+}
+
+function stamp(g: Game) {
+  if (g.round % 3 !== 0) return;
+  log(g, 'Der Stempel fällt: 1 Punkt in Flensburg.');
+  addPunkte(g, 1, 'Der Stempel fällt');
+}
+
+function nextRound(g: Game) {
   if (g.status !== 'gm') return;
   g.round++;
   g.status = 'play';
@@ -517,10 +542,104 @@ export function* gmTurn(g: Game): Generator<void> {
   beginTurn(g);
 }
 
+/* ---------- Spielleiter als Mensch ---------- */
+
+function gmStart(g: Game) {
+  log(g, '— Der Spielleiter ist dran —');
+  g.gmActed = []; g.gmMoved = []; g.gmCardPlayed = false;
+  g.gmCards = [drawCard(g), drawCard(g)];
+  g.monsters.filter((m) => m.stuck && isActive(g, m)).forEach((m) => {
+    m.stuck = false;
+    g.gmActed.push(m.uid);
+    log(g, `${MONSTERS[m.kind].name} zappelt im Netz.`);
+  });
+}
+
+export function gmTargets(g: Game, m: Monster): Hero[] {
+  const r = MONSTERS[m.kind].range;
+  return living(g).filter((h) => dist(m, h) <= r && lineOfSight(g, m, h));
+}
+
+export const gmCanAct = (g: Game, m: Monster) =>
+  g.status === 'gm' && g.gmHuman && isActive(g, m) && !g.gmActed.includes(m.uid);
+
+export function gmReachable(g: Game, m: Monster): Map<string, Pos[]> {
+  const out = new Map<string, Pos[]>();
+  if (!gmCanAct(g, m) || g.gmMoved.includes(m.uid)) return out;
+  const max = MONSTERS[m.kind].spd;
+  const q: { p: Pos; path: Pos[] }[] = [{ p: { x: m.x, y: m.y }, path: [] }];
+  const done = new Set([key(m.x, m.y)]);
+  while (q.length) {
+    const { p, path } = q.shift()!;
+    if (path.length) out.set(key(p.x, p.y), path);
+    if (path.length >= max) continue;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const x = p.x + dx, y = p.y + dy, k = key(x, y);
+      if (done.has(k) || !walkable(tile(g, x, y)) || !g.seen[y][x]) continue;
+      if (monsterAt(g, x, y) || heroAt(g, x, y) || chestAt(g, x, y)) continue;
+      done.add(k);
+      q.push({ p: { x, y }, path: [...path, { x, y }] });
+    }
+  }
+  return out;
+}
+
+function gmMove(g: Game, m: Monster, x: number, y: number): boolean {
+  const path = gmReachable(g, m).get(key(x, y));
+  if (!path) return false;
+  g.fx.push({ t: 'move', who: mkey(m), path });
+  m.x = x; m.y = y;
+  g.gmMoved.push(m.uid);
+  return true;
+}
+
+function gmAttack(g: Game, m: Monster, id: HeroId): boolean {
+  const t = gmTargets(g, m).find((h) => h.id === id);
+  if (!t || !gmCanAct(g, m)) return false;
+  g.gmActed.push(m.uid);
+  strike(g, m, t);
+  return true;
+}
+
+function gmCard(g: Game, i: number): boolean {
+  if (g.status !== 'gm' || !g.gmHuman || g.gmCardPlayed || g.gmCards[i] === undefined) return false;
+  g.gmCardPlayed = true;
+  playEvent(g, g.gmCards[i]);
+  return true;
+}
+
+function gmEnd(g: Game): boolean {
+  if (g.status !== 'gm' || !g.gmHuman || !g.gmCardPlayed) return false;
+  stamp(g);
+  nextRound(g);
+  return true;
+}
+
+/** Führt eine Handlung aus; false, wenn sie nach den Regeln gerade nicht geht. */
+export function dispatch(g: Game, a: Action): boolean {
+  const foe = (uid?: number) => g.monsters.find((m) => m.uid === uid);
+  switch (a.type) {
+    case 'move': return moveTo(g, a.x, a.y);
+    case 'door': return openDoor(g, a.x, a.y);
+    case 'chest': return openChest(g, a.x, a.y);
+    case 'attack': { const m = foe(a.uid); return !!m && attack(g, m) !== null; }
+    case 'special': return special(g, foe(a.uid));
+    case 'search': return search(g);
+    case 'eat': return eat(g);
+    case 'end': if (g.status !== 'play') return false; endTurn(g); return true;
+    case 'gmMove': { const m = foe(a.uid); return !!m && gmMove(g, m, a.x, a.y); }
+    case 'gmAttack': { const m = foe(a.uid); return !!m && gmAttack(g, m, a.hero); }
+    case 'gmCard': return gmCard(g, a.index);
+    case 'gmEnd': return gmEnd(g);
+    default: return false;
+  }
+}
+
 export function finishChapter(c: Campaign, g: Game): Campaign {
   return {
     oere: g.oere,
     chapter: c.chapter + 1,
+    gmHuman: c.gmHuman,
     heroes: c.heroes.map((h) => {
       const now = g.heroes.find((o) => o.id === h.id)!;
       return { ...h, food: now.food };

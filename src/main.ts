@@ -1,5 +1,5 @@
 import './ui/style.css';
-import { CHAPTERS, HEROES, PUNKTE_LIMIT, SHOP, type HeroId } from './game/data';
+import { CHAPTERS, EVENTS, HEROES, MONSTERS, PUNKTE_LIMIT, SHOP, type HeroId } from './game/data';
 import * as E from './game/engine';
 import type { Campaign, Game } from './game/engine';
 import { Board, type Mark } from './ui/board';
@@ -12,6 +12,8 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 let campaign: Campaign | null = load();
 let game: Game | null = null;
 let picked: HeroId[] = [];
+let gmHuman = false;
+let gmSel: number | null = null;
 let aiming = false;
 
 function load(): Campaign | null {
@@ -35,7 +37,7 @@ function title() {
   const hasSave = campaign && campaign.chapter < CHAPTERS.length;
   html(`<main class="screen title">
     <h1>⚓ FlensQuest</h1>
-    <p class="lead">Ein Kellerabenteuer zwischen Hafenspitze und Punktearchiv.<br>Für 1 bis 4 an einem Gerät. Den Spielleiter macht der Rechner.</p>
+    <p class="lead">Ein Kellerabenteuer zwischen Hafenspitze und Punktearchiv.<br>Für 1 bis 4 Figuren an einem Gerät. Den Spielleiter spielt der Rechner oder ein Mensch.</p>
     <div class="row">
       <button class="primary" data-new>Neues Abenteuer</button>
       ${hasSave ? `<button data-go>Weiter: Kapitel ${campaign!.chapter + 1}</button>` : ''}
@@ -69,6 +71,11 @@ function pick() {
         <small><b>${d.special}:</b> ${d.specialText}</small>
       </button>`;
     }).join('')}</div>
+    <div class="row seat" role="group" aria-label="Spielleiter">
+      <b>Spielleiter:</b>
+      <button class="${gmHuman ? '' : 'on'}" data-gm="0" aria-pressed="${!gmHuman}">🖥️ Rechner</button>
+      <button class="${gmHuman ? 'on' : ''}" data-gm="1" aria-pressed="${gmHuman}">🧑 Mensch</button>
+    </div>
     <div class="row">
       <button data-back>Zurück</button>
       <button class="primary" data-start ${picked.length ? '' : 'disabled'}>Leinen los (${picked.length})</button>
@@ -80,7 +87,8 @@ function pick() {
     pick();
   });
   on('[data-back]', title);
-  on('[data-start]', () => { campaign = E.newCampaign(picked); save(); chapterIntro(); });
+  on('[data-gm]', (el) => { gmHuman = el.dataset.gm === '1'; pick(); });
+  on('[data-start]', () => { campaign = E.newCampaign(picked, gmHuman); save(); chapterIntro(); });
 }
 
 function chapterIntro() {
@@ -160,10 +168,26 @@ let view: Board | null = null;
 let busy = false;
 let logOpen = false;
 let recap: string[] = [];
+let gmOpen = false;
+
+function gmMarks(g: Game): Mark[] {
+  const out: Mark[] = [];
+  const sel = g.monsters.find((o) => o.uid === gmSel);
+  for (const o of g.monsters) if (E.gmCanAct(g, o) && o !== sel) out.push({ x: o.x, y: o.y, kind: 'use', act: 'gmSelect' });
+  if (!sel || !E.gmCanAct(g, sel)) return out;
+  for (const k of E.gmReachable(g, sel).keys()) {
+    const [x, y] = k.split(',').map(Number);
+    out.push({ x, y, kind: 'walk', act: 'gmMove' });
+  }
+  for (const h of E.gmTargets(g, sel)) out.push({ x: h.x, y: h.y, kind: 'foe', act: 'gmAttack' });
+  return out;
+}
 
 function marks(g: Game): Mark[] {
   const out: Mark[] = [];
-  if (g.status !== 'play' || busy) return out;
+  if (busy) return out;
+  if (g.status === 'gm' && g.gmHuman) return gmMarks(g);
+  if (g.status !== 'play') return out;
   if (!aiming) {
     for (const k of E.reachable(g).keys()) {
       const [x, y] = k.split(',').map(Number);
@@ -189,12 +213,22 @@ function tapTile(p: { x: number; y: number }) {
   const mark = marks(g).find((m) => m.x === p.x && m.y === p.y);
   if (!mark) return;
   const m = E.monsterAt(g, p.x, p.y);
-  if (mark.act === 'move') E.moveTo(g, p.x, p.y);
-  if (mark.act === 'door') E.openDoor(g, p.x, p.y);
-  if (mark.act === 'chest') E.openChest(g, p.x, p.y);
-  if (mark.act === 'attack' && m) E.attack(g, m);
-  if (mark.act === 'special' && m) { E.special(g, m); aiming = false; }
-  after();
+  if (mark.act === 'gmSelect' && m) { gmSel = m.uid; board(); return; }
+  if (mark.act === 'gmMove' && gmSel !== null) act({ type: 'gmMove', uid: gmSel, ...p });
+  if (mark.act === 'gmAttack' && gmSel !== null) {
+    const h = E.heroAt(g, p.x, p.y);
+    if (h) act({ type: 'gmAttack', uid: gmSel, hero: h.id });
+  }
+  if (mark.act === 'move') act({ type: 'move', ...p });
+  if (mark.act === 'door') act({ type: 'door', ...p });
+  if (mark.act === 'chest') act({ type: 'chest', ...p });
+  if (mark.act === 'attack' && m) act({ type: 'attack', uid: m.uid });
+  if (mark.act === 'special' && m) { aiming = false; act({ type: 'special', uid: m.uid }); }
+}
+
+function act(a: E.Action) {
+  if (!game || busy || !E.dispatch(game, a)) return;
+  void after();
 }
 
 const portrait = (o: E.Hero) => toDataUrl(heroSprite(o.id, o.gear, 0));
@@ -213,13 +247,8 @@ function panel() {
       <img class="dot" alt="" src="${portrait(o)}">
       <span><b>${HEROES[o.id].name}</b><br><small>❤️ ${o.hp}/${o.maxHp} · 🥪 ${o.food} · ✨ ${o.charges}</small></span>
     </div>`).join('')}</div>
-    ${g.status === 'gm' ? '<p class="turn">Der Oberpunktezähler stempelt …</p>' : `<p class="turn"><b>${d.name}</b> · ${'🌊'.repeat(g.tiden)}${g.steps ? ` · 👣 ${g.steps}` : ''}</p>`}
-    <div class="actions">
-      <button data-search ${playing && g.tiden > 0 ? '' : 'disabled'}>🔎 Suchen</button>
-      <button data-eat ${playing && g.tiden > 0 && h.food > 0 && h.hp < h.maxHp ? '' : 'disabled'}>🥪 Essen</button>
-      <button class="${aiming ? 'on' : ''}" data-special ${playing && E.canSpecial(g) ? '' : 'disabled'} title="${d.specialText}">✨ ${d.special}</button>
-      <button class="primary" data-end ${playing ? '' : 'disabled'}>Zug beenden</button>
-    </div>
+    ${g.status === 'gm' && !g.gmHuman ? '<p class="turn">Der Oberpunktezähler stempelt …</p>' : g.status === 'gm' ? gmHint(g) : `<p class="turn"><b>${d.name}</b> · ${'🌊'.repeat(g.tiden)}${g.steps ? ` · 👣 ${g.steps}` : ''}</p>`}
+    ${g.status === 'gm' && g.gmHuman ? gmButtons(g) : heroButtons(g, playing)}
     <details class="verlauf" ${logOpen ? 'open' : ''}><summary>Verlauf</summary>
       <ol class="log">${g.log.slice(-40).reverse().map((l) => `<li>${l}</li>`).join('')}</ol>
     </details>`;
@@ -227,13 +256,38 @@ function panel() {
     logOpen = (e.target as HTMLDetailsElement).open;
   });
   on('[data-quit]', () => { view?.stop(); view = null; game = null; title(); });
-  on('[data-search]', () => { E.search(g); after(); });
-  on('[data-eat]', () => { E.eat(g); after(); });
-  on('[data-end]', () => { aiming = false; E.endTurn(g); void after(); });
+  on('[data-search]', () => act({ type: 'search' }));
+  on('[data-eat]', () => act({ type: 'eat' }));
+  on('[data-end]', () => { aiming = false; act({ type: 'end' }); });
   on('[data-special]', () => {
     if (E.specialNeedsTarget(g)) { aiming = !aiming; board(); return; }
-    E.special(g); after();
+    act({ type: 'special' });
   });
+  on('[data-card]', (el) => act({ type: 'gmCard', index: Number(el.dataset.card) }));
+  on('[data-gmend]', () => { gmSel = null; act({ type: 'gmEnd' }); });
+}
+
+function heroButtons(g: Game, playing: boolean) {
+  const h = E.activeHero(g), d = HEROES[h.id];
+  return `<div class="actions">
+    <button data-search ${playing && g.tiden > 0 ? '' : 'disabled'}>🔎 Suchen</button>
+    <button data-eat ${playing && g.tiden > 0 && h.food > 0 && h.hp < h.maxHp ? '' : 'disabled'}>🥪 Essen</button>
+    <button class="${aiming ? 'on' : ''}" data-special ${playing && E.canSpecial(g) ? '' : 'disabled'} title="${d.specialText}">✨ ${d.special}</button>
+    <button class="primary" data-end ${playing ? '' : 'disabled'}>Zug beenden</button>
+  </div>`;
+}
+
+function gmHint(g: Game) {
+  const sel = g.monsters.find((o) => o.uid === gmSel);
+  const open = g.monsters.filter((o) => E.gmCanAct(g, o)).length;
+  return `<p class="turn"><b>Spielleiter</b> · ${sel && E.gmCanAct(g, sel) ? MONSTERS[sel.kind].name : `${open} Gegner bereit`}</p>`;
+}
+
+function gmButtons(g: Game) {
+  const off = busy ? 'disabled' : '';
+  return `<div class="cards-gm">${g.gmCards.map((c, i) => `<button data-card="${i}" ${g.gmCardPlayed ? 'disabled' : off}>
+      📜 ${EVENTS[c].name}<small>${EVENTS[c].text}</small></button>`).join('')}</div>
+    <button class="primary" data-gmend ${g.gmCardPlayed && !busy ? '' : 'disabled'}>Runde beenden</button>`;
 }
 
 function setupTilt(b: Board) {
@@ -348,8 +402,10 @@ async function after() {
   await drain(g);
   busy = false;
   if (game !== g) return;
-  if (g.status === 'gm') { await runGm(g); return; }
   if (g.status === 'won' || g.status === 'lost') { result(); return; }
+  if (g.status === 'gm' && !g.gmHuman) { await runGm(g); return; }
+  if (g.status === 'gm' && !gmOpen) { gmOpen = true; recap = []; }
+  if (g.status === 'play' && gmOpen) { gmOpen = false; setBox('.caption', null); showRecap(); }
   board();
 }
 
