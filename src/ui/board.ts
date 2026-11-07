@@ -1,7 +1,7 @@
 import { CHAPTERS } from '../game/data';
 import type { Fx, Game, Pos } from '../game/engine';
 import { activeHero, chestAt, hkey, isActive, mkey } from '../game/engine';
-import { MONSTERS, type HeroId, type MonsterId } from '../game/data';
+import { HEROES, MONSTERS, type HeroId, type MonsterId } from '../game/data';
 import {
   SPRITE, THEMES, floorTile, heroDown, heroSprite, monsterSprite, objects, wallFace, wallTop,
 } from './sprites';
@@ -179,10 +179,13 @@ export class Board {
   }
 
   private tween(ms: number, fn: (p: number) => void): Promise<void> {
-    const dur = ms / this.speed, start = performance.now();
+    let done = 0, last = performance.now();
     return new Promise((res) => {
       const step = () => {
-        const p = Math.min(1, (performance.now() - start) / dur);
+        const now = performance.now();
+        done += (now - last) * this.speed;
+        last = now;
+        const p = Math.min(1, done / ms);
         fn(p);
         if (p < 1) setTimeout(step, 16); else res();
       };
@@ -192,6 +195,16 @@ export class Board {
 
   private floatText(x: number, y: number, text: string, color: string, dur = 1100) {
     this.floats.push({ x, y, text, color, start: performance.now(), dur: dur / this.speed });
+  }
+
+  pause(ms: number) { return this.tween(ms, () => undefined); }
+
+  /** Anzeigename einer Figur, auch wenn sie gerade aus dem Spiel geht. */
+  label(key: string) {
+    const v = this.vis.get(key);
+    if (v?.hero) return HEROES[v.hero].name;
+    if (v?.monster) return MONSTERS[v.monster].name;
+    return '';
   }
 
   /** Spielt ein Ereignis ab und wartet, bis es zu sehen war. */
