@@ -54,6 +54,8 @@ export class Board {
   private shots: Shot[] = [];
   /** Tempo der Animationen; Tippen während des Spielleiter-Zugs erhöht es. */
   speed = 1;
+  /** Wird je Schritt aufgerufen, damit die Oberfläche Geräusche spielen kann. */
+  onStep: () => void = () => undefined;
 
   constructor(readonly canvas: HTMLCanvasElement, private onTile: (p: Pos) => void) {
     this.ctx = canvas.getContext('2d')!;
@@ -357,6 +359,7 @@ export class Board {
         for (const p of f.path) {
           const sx = v.x, sy = v.y;
           if (p.x !== sx) v.flip = p.x < sx;
+          this.onStep();
           await this.tween(130, (k) => { v.x = sx + (p.x - sx) * k; v.y = sy + (p.y - sy) * k; });
         }
         v.walking = false;

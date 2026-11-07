@@ -25,6 +25,10 @@ npm run build
 - **Punkte in Flensburg:** Fallen, Knöllchen, gestürzte Figuren und der Stempel jede vierte Runde bringen Punkte. Bei 8 ist der Lappen weg und das Kapitel verloren.
 - **Hafenkiosk:** Zwischen den Kapiteln gibt es Friesennerz, Bootshaken, Gummistiefel und Fischbrötchen für Öre.
 
+## Ton
+
+Geräusche und das Ambiente erzeugt der Browser selbst, es gibt keine Audiodateien. Die Sprachausgabe nutzt die deutsche Stimme des Geräts. Rechts unten lassen sich Geräusche, Ambiente und Sprache einzeln schalten, 📖 liest die aktuelle Ansicht vor. Der Klang startet nach dem ersten Tippen.
+
 ## Aufbau
 
 - `src/game/data.ts`: Figuren, Gegner, Kapitel, Karten, Ereignisse
