@@ -1,4 +1,4 @@
-import type { Chapter, GmCard } from './data';
+import type { Chapter, GmCard } from './types';
 
 /** Kampagne „Die Akte Förde“: Texte und Karten, keine Spiellogik. */
 export const AKTE_INTRO = 'In Flensburg stimmt was nicht. Am Hafen regnet es Strafzettel. Möwen werden wegen Falschparkens verwarnt, Fischbrötchen beschlagnahmt, und Tante Inge hat den Führerschein verloren, dabei hat sie gar kein Auto. Der Grund: Der legendäre Punkte-Stempel ist aus dem Punktearchiv verschwunden. Seitdem fallen Punkte, wo sie wollen. Die Polizei sagt, da ist sie nicht zuständig. Das Amt sagt, da ist es zuständig, aber erst ab Montag. Also bleibt nur ihr.';

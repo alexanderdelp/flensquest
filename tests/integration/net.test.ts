@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import * as E from '../../src/game/engine';
+import * as E from '../support/engine';
 import { LocalTransport, allowed, snapshot, type NetMessage, type Seat } from '../../src/net/transport';
 
 const start = (gm = false) => E.startChapter(E.newCampaign(['frauke', 'joern'], gm), 42);

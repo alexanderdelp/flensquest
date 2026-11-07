@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { campaignById, CAMPAIGNS } from '../../src/game/campaigns';
-import { MONSTERS, type HeroId } from '../../src/game/data';
-import * as E from '../../src/game/engine';
+import { BUILTIN as CAMPAIGNS } from '../../src/campaigns';
+import { AKTE_CHAPTERS } from '../../src/campaigns/legacy/akte';
+import { MONSTERS, type HeroId } from '../../src/content';
+import * as E from '../support/engine';
 
-const AKTE = campaignById('akte');
+const AKTE = E.campaignById('akte');
 const start = (ids: HeroId[], chapter: number, seed = 1) => {
   const c = E.newCampaign(ids, false, 'akte');
   c.chapter = chapter;
@@ -32,15 +33,16 @@ describe('Die Akte Förde', () => {
   });
 
   AKTE.chapters.forEach((ch, i) => describe(`Mission ${i + 1}: ${ch.title}`, () => {
+    const old = AKTE_CHAPTERS[i];
     const g = start(['frauke', 'joern', 'maren', 'juni'], i);
 
     it('ist vollständig erzählt', () => {
       for (const t of [ch.title, ch.intro, ch.situation, ch.goalText, ch.outro]) expect(t?.length).toBeGreaterThan(10);
       if (i < 5) expect(ch.bridge?.length).toBeGreaterThan(10);
-      expect(ch.notes!.length).toBeGreaterThanOrEqual(3);
-      expect(Object.keys(ch.foes!).length).toBeGreaterThanOrEqual(1);
-      expect(ch.notes!.some((n) => n.spawn) || !!ch.phase).toBe(true);
-      expect(ch.notes!.every((n) => n.text.length <= 170)).toBe(true);
+      expect(old.notes!.length).toBeGreaterThanOrEqual(3);
+      expect(Object.keys(old.foes!).length).toBeGreaterThanOrEqual(1);
+      expect(old.notes!.some((n) => n.spawn) || !!old.phase).toBe(true);
+      expect(old.notes!.every((n) => n.text.length <= 170)).toBe(true);
     });
 
     it('hat eine gültige Karte', () => {
@@ -50,7 +52,7 @@ describe('Die Akte Förde', () => {
     });
 
     it('alle Raumtexte hängen an echten Türen', () => {
-      for (const n of ch.notes!) for (const [x, y] of n.at) {
+      for (const n of old.notes!) for (const [x, y] of n.at) {
         expect('DH', `${n.title} bei ${x},${y}`).toContain(E.tile(g, x, y));
       }
     });
@@ -77,8 +79,8 @@ describe('Die Akte Förde', () => {
     });
 
     it('beschreibt nur Gegner, die auftauchen', () => {
-      const here = new Set([...g.monsters.map((m) => m.kind), ...(ch.notes ?? []).flatMap((n) => (n.spawn ?? []).map((s) => s.kind))]);
-      for (const k of Object.keys(ch.foes!)) expect(here.has(k as never), k).toBe(true);
+      const here = new Set([...g.monsters.map((m) => m.kind), ...(old.notes ?? []).flatMap((n) => (n.spawn ?? []).map((s) => s.kind))]);
+      for (const k of Object.keys(old.foes!)) expect(here.has(k as never), k).toBe(true);
     });
   }));
 
@@ -92,7 +94,7 @@ describe('Die Akte Förde', () => {
     const before = g.monsters.length;
     boss.hp = Math.ceil(boss.maxHp / 2) + 1;
     E.dispatch(g, { type: 'special', uid: boss.uid });
-    expect(g.phaseDone).toBe(true);
+    expect(g.scriptsDone.some((i) => E.chapterOf(g).scripts[i].when.on === 'halb')).toBe(true);
     expect(g.monsters.length).toBe(before + 2);
     expect(g.fx.some((f) => f.t === 'note')).toBe(true);
   });
@@ -141,7 +143,7 @@ describe('Die Akte Förde', () => {
     expect(E.dispatch(g, { type: 'door', x: 14, y: 4 })).toBe(true);
     expect(g.fx.filter((f) => f.t === 'note' && f.title === 'Fischkisten')).toHaveLength(1);
     expect(g.monsters.length).toBe(before + 1);
-    expect(g.notesDone).toEqual([1]);
+    expect(g.scriptsDone).toContain(1);
   });
 
   it('Gegnertexte erscheinen beim ersten Auftauchen', () => {
@@ -150,7 +152,7 @@ describe('Die Akte Förde', () => {
     g.seen[m.y][m.x] = true;
     E.reveal(g);
     E.reveal(g);
-    expect(g.foesSeen).toEqual(['kalle']);
+    expect(g.scriptsDone.map((i) => E.chapterOf(g).scripts[i].when)).toEqual([{ on: 'sieht', kind: 'kalle' }]);
     expect(g.fx.filter((f) => f.t === 'note')).toHaveLength(1);
   });
 

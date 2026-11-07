@@ -1,5 +1,5 @@
-import type { HeroId } from '../game/data';
-import type { Action, Game } from '../game/engine';
+import type { HeroId } from '../content';
+import type { Action, Game } from '../core';
 
 /** Wer an einem Gerät was steuert. */
 export interface Seat { device: string; heroes: HeroId[]; gm: boolean }

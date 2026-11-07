@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { CAMPAIGNS } from '../../src/game/campaigns';
-import { type HeroId } from '../../src/game/data';
-import * as E from '../../src/game/engine';
+import { BUILTIN as CAMPAIGNS } from '../../src/campaigns';
+import { type HeroId } from '../../src/content';
+import * as E from '../support/engine';
 
 /*
  * Balance: Ein einfacher Bot spielt jedes Kapitel viele Male durch. Er zeigt nur die Tendenz;

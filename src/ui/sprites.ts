@@ -1,4 +1,4 @@
-import type { HeroId, MonsterId } from '../game/data';
+import type { HeroId, MonsterId } from '../content';
 
 /** Eigene Pixel-Art, zur Laufzeit gezeichnet und zwischengespeichert. Raster 32 × 32. */
 export const SPRITE = 32;
