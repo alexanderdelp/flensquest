@@ -72,6 +72,26 @@ small { font-weight: 400; }
   position: absolute; left: 10px; bottom: 10px; display: flex; align-items: center; gap: 8px;
   padding: 6px 12px; border-radius: 10px; background: rgba(11, 39, 51, .85); color: var(--moewe); font-size: .85rem;
 }
+.banner {
+  position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); z-index: 3;
+  display: flex; flex-direction: column; gap: 4px; align-items: center; text-align: center;
+  width: min(440px, 86%); padding: 16px 22px; pointer-events: none;
+  background: var(--sand); border: 3px solid var(--ziegel-dark); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.45);
+}
+.banner[hidden], .caption[hidden], .recap[hidden] { display: none; }
+.banner small { color: var(--ziegel); font-weight: 700; }
+.banner b { font-size: 1.5rem; color: var(--foerde); }
+.caption {
+  position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 2; max-width: 92%;
+  padding: 8px 16px; border-radius: 10px; pointer-events: none; text-align: center;
+  background: rgba(11, 39, 51, .92); color: var(--moewe); font-weight: 600;
+}
+.caption small { display: block; font-weight: 400; opacity: .75; }
+.recap {
+  position: absolute; right: 10px; bottom: 10px; z-index: 2; width: min(420px, 60%); padding: 10px 14px;
+  border-radius: 10px; pointer-events: none; background: rgba(244, 236, 220, .95); font-size: .88rem;
+}
+.recap ul { margin: 4px 0 0; padding-left: 1.1em; }
 .tilt span { min-width: 68px; }
 .tilt input { width: 170px; height: 28px; accent-color: var(--gold); }
 .board { display: block; cursor: pointer; touch-action: manipulation; image-rendering: pixelated; }
@@ -85,7 +105,10 @@ small { font-weight: 400; }
 .turn { margin: 0; }
 .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .actions button { padding: .3em .4em; font-size: .9rem; }
-.log { flex: 1; min-height: 60px; overflow: auto; margin: 0; padding: 6px 8px; list-style: none; background: var(--moewe); border-radius: 8px; font-size: .82rem; line-height: 1.35; }
+.verlauf { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.verlauf summary { cursor: pointer; font-weight: 600; padding: 6px 2px; min-height: 32px; }
+.verlauf[open] { overflow: hidden; }
+.log { flex: 1; min-height: 60px; max-height: 100%; overflow: auto; margin: 0; padding: 6px 8px; list-style: none; background: var(--moewe); border-radius: 8px; font-size: .82rem; line-height: 1.35; }
 .log li + li { border-top: 1px solid #eee2c9; }
 
 @media (max-width: 820px) {

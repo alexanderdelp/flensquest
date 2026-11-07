@@ -158,6 +158,8 @@ function shop() {
 
 let view: Board | null = null;
 let busy = false;
+let logOpen = false;
+let recap: string[] = [];
 
 function marks(g: Game): Mark[] {
   const out: Mark[] = [];
@@ -218,7 +220,12 @@ function panel() {
       <button class="${aiming ? 'on' : ''}" data-special ${playing && E.canSpecial(g) ? '' : 'disabled'} title="${d.specialText}">✨ ${d.special}</button>
       <button class="primary" data-end ${playing ? '' : 'disabled'}>Zug beenden</button>
     </div>
-    <ol class="log" aria-live="polite">${g.log.slice(-40).reverse().map((l) => `<li>${l}</li>`).join('')}</ol>`;
+    <details class="verlauf" ${logOpen ? 'open' : ''}><summary>Verlauf</summary>
+      <ol class="log">${g.log.slice(-40).reverse().map((l) => `<li>${l}</li>`).join('')}</ol>
+    </details>`;
+  app.querySelector<HTMLDetailsElement>('.verlauf')!.addEventListener('toggle', (e) => {
+    logOpen = (e.target as HTMLDetailsElement).open;
+  });
   on('[data-quit]', () => { view?.stop(); view = null; game = null; title(); });
   on('[data-search]', () => { E.search(g); after(); });
   on('[data-eat]', () => { E.eat(g); after(); });
@@ -251,6 +258,9 @@ function board() {
       <div class="table">
         <div class="boardwrap">
           <canvas class="board" aria-label="Spielbrett"></canvas>
+          <div class="banner" hidden></div>
+          <div class="caption" hidden></div>
+          <div class="recap" hidden></div>
           <label class="tilt"><span>Blick <b data-angle></b></span>
             <input type="range" min="35" max="90" step="5" data-tilt aria-label="Blickwinkel"></label>
         </div>
@@ -269,11 +279,63 @@ function board() {
 
 const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+function setBox(sel: string, content: string | null) {
+  const el = app.querySelector<HTMLElement>(sel);
+  if (!el) return;
+  el.hidden = content === null;
+  if (content !== null) el.innerHTML = content;
+}
+
+function showRecap() {
+  const lines = recap.slice(-6);
+  setBox('.recap', lines.length ? `<b>Das war die Runde</b><ul>${lines.map((l) => `<li>${l}</li>`).join('')}</ul>` : null);
+}
+
+/** Beschreibt ein Ereignis in einem Satz; null, wenn es keine eigene Meldung braucht. */
+function describe(f: E.Fx, v: Board): string | null {
+  if (f.t === 'attack') {
+    const a = v.label(f.who), t = v.label(f.target);
+    const dice = f.a ? ` (${f.a}+${f.b}, nötig ${f.need})` : '';
+    return f.hit ? `${a} trifft ${t}${dice}: ${f.dmg} Schaden` : `${a} verfehlt ${t}${dice}`;
+  }
+  if (f.t === 'die') return `${v.label(f.who)} ist erledigt`;
+  return null;
+}
+
+async function announce(f: E.Fx, g: Game, v: Board) {
+  const gm = g.status === 'gm';
+  if (f.t === 'card') {
+    recap.push(`📜 ${f.name}: ${f.text}`);
+    setBox('.banner', `<small>Ereigniskarte</small><b>${f.name}</b><span>${f.text}</span>`);
+    await v.pause(2200);
+    setBox('.banner', null);
+    return;
+  }
+  if (f.t === 'punkte') {
+    recap.push(`🔴 ${f.why || 'Punkt'}: +${f.n}, jetzt ${f.total} von ${PUNKTE_LIMIT}`);
+    setBox('.banner', `<small>Punkte in Flensburg</small><b>+${f.n} · ${f.total} von ${PUNKTE_LIMIT}</b><span>${f.why}</span>`);
+    panel();
+    await v.pause(1500);
+    setBox('.banner', null);
+    return;
+  }
+  const text = describe(f, v);
+  if (text && gm) {
+    recap.push(text);
+    setBox('.caption', text);
+  }
+}
+
 /** Spielt alle offenen Ereignisse nacheinander ab. */
 async function drain(g: Game) {
   const v = view;
   if (!v) return;
-  while (g.fx.length) await v.play(g.fx.shift()!);
+  while (g.fx.length) {
+    const f = g.fx.shift()!;
+    await announce(f, g, v);
+    await v.play(f);
+    if (f.t === 'attack' && g.status === 'gm') await v.pause(500);
+  }
   v.sync(g);
 }
 
@@ -281,6 +343,7 @@ async function after() {
   const g = game!;
   busy = true;
   if (view) view.speed = calm() ? 5 : 1;
+  setBox('.recap', null);
   board();
   await drain(g);
   busy = false;
@@ -292,7 +355,9 @@ async function after() {
 
 async function runGm(g: Game) {
   busy = true;
+  recap = [];
   if (view) view.speed = calm() ? 5 : 1;
+  setBox('.caption', 'Der Oberpunktezähler ist dran … <small>Tippen macht es schneller</small>');
   board();
   for (const _ of E.gmTurn(g)) {
     void _;
@@ -302,8 +367,11 @@ async function runGm(g: Game) {
   }
   await drain(g);
   busy = false;
+  setBox('.caption', null);
   if (game !== g) return;
   if (g.status === 'won' || g.status === 'lost') { result(); return; }
+  if (!recap.length) recap.push('Alles ruhig in dieser Runde.');
+  showRecap();
   board();
 }
 
