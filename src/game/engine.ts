@@ -16,7 +16,20 @@ export interface Hero extends CampaignHero, Pos {
 export interface Monster extends Pos {
   uid: number; kind: MonsterId; hp: number; maxHp: number; stuck: boolean;
 }
+/** Was passiert ist, damit die Oberfläche es zeigen kann. Die Regeln hängen nicht davon ab. */
+export type Fx =
+  | { t: 'move'; who: string; path: Pos[] }
+  | { t: 'attack'; who: string; target: string; shot: string | null; a: number; b: number; total: number; need: number; hit: boolean; dmg: number }
+  | { t: 'shot'; who: string; target: string; shot: string }
+  | { t: 'hurt'; who: string; n: number }
+  | { t: 'heal'; who: string; n: number }
+  | { t: 'die'; who: string }
+  | { t: 'float'; at: Pos; text: string }
+  | { t: 'card'; name: string; text: string }
+  | { t: 'punkte'; n: number; total: number; why: string };
+
 export interface Game {
+  fx: Fx[];
   chapter: number; w: number; h: number;
   tiles: string[][]; seen: boolean[][];
   heroes: Hero[]; monsters: Monster[];
@@ -29,6 +42,8 @@ export interface Game {
 }
 
 const key = (x: number, y: number) => `${x},${y}`;
+export const hkey = (h: { id: string }) => `h:${h.id}`;
+export const mkey = (m: { uid: number }) => `m:${m.uid}`;
 const walkable = (t: string) => t === '.' || t === 'O' || t === 'X';
 const blocksSight = (t: string) => t === '#' || t === 'D' || t === 'H';
 export const dist = (a: Pos, b: Pos) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
@@ -59,7 +74,7 @@ export function startChapter(c: Campaign, seed = Date.now()): Game {
   const n = c.heroes.length;
   const g: Game = {
     chapter: c.chapter, w: ch.map[0].length, h: ch.map.length,
-    tiles: [], seen: [], heroes: [], monsters: [], chests: [], traps: [],
+    fx: [], tiles: [], seen: [], heroes: [], monsters: [], chests: [], traps: [],
     goal: null, goalTaken: false, exit: null,
     turn: 0, tiden: 0, steps: 0, attacked: false, specialUsed: false,
     round: 1, punkte: 0, oere: c.oere, nextUid: 1,
@@ -175,16 +190,20 @@ export function moveTo(g: Game, x: number, y: number): boolean {
   const path = reachable(g).get(key(x, y));
   if (!path || g.status !== 'play') return false;
   const h = activeHero(g);
+  const walked: Pos[] = [];
+  const mv: Fx = { t: 'move', who: hkey(h), path: walked };
+  g.fx.push(mv);
   for (const p of path) {
     if (g.steps === 0) { g.tiden--; g.steps = h.spd; }
     g.steps--;
     h.x = p.x; h.y = p.y;
+    walked.push({ x: p.x, y: p.y });
     const trap = g.traps.findIndex((t) => t.x === p.x && t.y === p.y);
     if (trap >= 0) {
       g.traps.splice(trap, 1);
       log(g, `Falle! ${HEROES[h.id].name} tritt in ein Fangnetz: 2 Schaden und 1 Punkt.`);
-      addPunkte(g, 1);
       hurtHero(g, h, 2);
+      addPunkte(g, 1, 'Falle');
       break;
     }
     if (g.goal && !g.goalTaken && p.x === g.goal.x && p.y === g.goal.y) takeGoal(g);
@@ -217,17 +236,19 @@ function lose(g: Game, why: string) {
   log(g, why);
 }
 
-export function addPunkte(g: Game, n: number) {
+export function addPunkte(g: Game, n: number, why = '') {
   g.punkte += n;
+  g.fx.push({ t: 'punkte', n, total: g.punkte, why });
   if (g.punkte >= PUNKTE_LIMIT) lose(g, '8 Punkte in Flensburg: der Lappen ist weg!');
 }
 
 function hurtHero(g: Game, h: Hero, dmg: number) {
   h.hp = Math.max(0, h.hp - dmg);
+  g.fx.push({ t: 'hurt', who: hkey(h), n: dmg });
   if (h.hp === 0 && !h.down) {
     h.down = true;
     log(g, `${HEROES[h.id].name} geht zu Boden: 2 Punkte.`);
-    addPunkte(g, 2);
+    addPunkte(g, 2, `${HEROES[h.id].name} gestürzt`);
     if (!living(g).length) lose(g, 'Alle liegen auf den Planken. Das war nix.');
   }
 }
@@ -250,8 +271,11 @@ export function rollAttack(g: Game, att: number, arm: number): Roll {
 
 function damageMonster(g: Game, m: Monster, dmg: number) {
   m.hp -= dmg;
+  g.fx.push({ t: 'hurt', who: mkey(m), n: dmg });
   if (m.hp > 0) return;
   const d = MONSTERS[m.kind];
+  g.fx.push({ t: 'die', who: mkey(m) });
+  g.fx.push({ t: 'float', at: { x: m.x, y: m.y }, text: `+${d.reward} Öre` });
   g.monsters = g.monsters.filter((o) => o !== m);
   g.oere += d.reward;
   log(g, `${d.name} ist erledigt (+${d.reward} Öre).`);
@@ -265,6 +289,7 @@ export function attack(g: Game, m: Monster): Roll | null {
   const r = rollAttack(g, h.att, md.arm);
   const dmg = (r.crit ? 2 : 1) * def.dmg;
   log(g, `${def.name} → ${md.name}: 🎲 ${r.a}+${r.b}+${h.att} = ${r.total} (nötig ${r.need}) ${r.hit ? `Treffer, ${dmg} Schaden` : 'daneben'}`);
+  g.fx.push({ t: 'attack', who: hkey(h), target: mkey(m), shot: def.range > 1 ? h.id : null, a: r.a, b: r.b, total: r.total, need: r.need, hit: r.hit, dmg });
   if (r.hit) damageMonster(g, m, dmg);
   return r;
 }
@@ -297,9 +322,11 @@ export function openChest(g: Game, x: number, y: number): boolean {
     const o = 10 + r * 5;
     g.oere += o;
     log(g, `In der Truhe liegen ${o} Öre.`);
+    g.fx.push({ t: 'float', at: { x, y }, text: `+${o} Öre` });
   } else {
     h.food++;
     log(g, 'In der Truhe liegt ein erstaunlich frisches Fischbrötchen.');
+    g.fx.push({ t: 'float', at: { x, y }, text: '+1 Fischbrötchen' });
   }
   return true;
 }
@@ -325,6 +352,7 @@ export function eat(g: Game): boolean {
   const h = activeHero(g);
   if (g.status !== 'play' || g.tiden < 1 || h.food < 1 || h.hp >= h.maxHp) return false;
   g.tiden--; g.steps = 0; h.food--;
+  g.fx.push({ t: 'heal', who: hkey(h), n: Math.min(4, h.maxHp - h.hp) });
   h.hp = Math.min(h.maxHp, h.hp + 4);
   log(g, `${HEROES[h.id].name} isst ein Fischbrötchen (+4).`);
   return true;
@@ -355,6 +383,7 @@ export function special(g: Game, target?: Monster): boolean {
     const near = g.heroes.filter((o) => dist(o, h) <= 1 && o.hp < o.maxHp).sort((a, b) => a.hp - b.hp);
     if (!near.length) return false;
     const o = near[0];
+    g.fx.push({ t: 'heal', who: hkey(o), n: Math.min(4, o.maxHp - o.hp) });
     o.hp = Math.min(o.maxHp, o.hp + 4);
     o.down = false;
     log(g, `Lütt un Lütt für ${HEROES[o.id].name} (+4).`);
@@ -363,15 +392,20 @@ export function special(g: Game, target?: Monster): boolean {
     const hit = g.monsters.filter((m) => isActive(g, m) && dist(h, m) <= 3 && lineOfSight(g, h, m));
     if (!hit.length) return false;
     log(g, `Schwarm über der Förde trifft ${hit.length} Gegner.`);
-    hit.forEach((m) => damageMonster(g, m, 1));
+    hit.forEach((m) => {
+      g.fx.push({ t: 'shot', who: hkey(h), target: mkey(m), shot: 'maren' });
+      damageMonster(g, m, 1);
+    });
   }
   if (h.id === 'frauke' && target) {
     log(g, `FlensNetz fesselt ${MONSTERS[target.kind].name}.`);
     target.stuck = true;
+    g.fx.push({ t: 'shot', who: hkey(h), target: mkey(target), shot: 'netz' });
     damageMonster(g, target, 1);
   }
   if (h.id === 'joern' && target) {
     log(g, `Dicker Schlüssel trifft ${MONSTERS[target.kind].name}: 4 Schaden.`);
+    g.fx.push({ t: 'attack', who: hkey(h), target: mkey(target), shot: null, a: 0, b: 0, total: 0, need: 0, hit: true, dmg: 4 });
     damageMonster(g, target, 4);
   }
   g.tiden--; g.steps = 0; h.charges--; g.specialUsed = true;
@@ -414,27 +448,37 @@ function monsterAct(g: Game, m: Monster) {
   const path = pathToward(g, m, living(g), d.range);
   if (path === null) return;
   const walk = path.slice(0, d.spd);
-  if (walk.length) { m.x = walk[walk.length - 1].x; m.y = walk[walk.length - 1].y; }
+  if (walk.length) {
+    g.fx.push({ t: 'move', who: mkey(m), path: walk });
+    m.x = walk[walk.length - 1].x; m.y = walk[walk.length - 1].y;
+  }
   const t = living(g).filter((h) => dist(m, h) <= d.range && lineOfSight(g, m, h))
     .sort((a, b) => a.hp - b.hp)[0];
   if (!t) return;
   const r = rollAttack(g, d.att, t.arm);
   log(g, `${d.name} → ${HEROES[t.id].name}: 🎲 ${r.a}+${r.b}+${d.att} = ${r.total} (nötig ${r.need}) ${r.hit ? `Treffer, ${d.dmg} Schaden` : 'daneben'}`);
+  g.fx.push({ t: 'attack', who: mkey(m), target: hkey(t), shot: d.range > 1 ? 'stempel' : null, a: r.a, b: r.b, total: r.total, need: r.need, hit: r.hit, dmg: d.dmg });
   if (!r.hit) return;
   hurtHero(g, t, d.dmg);
   if (m.kind === 'knoellchen' && d6(g) === 6) {
     log(g, 'Der Kobold klebt ein Knöllchen an: 1 Punkt.');
-    addPunkte(g, 1);
+    addPunkte(g, 1, 'Knöllchen');
   }
 }
 
 function playEvent(g: Game) {
   const e = EVENTS[Math.floor(rand(g) * EVENTS.length)];
   log(g, `📜 ${e.name}: ${e.text}`);
-  if (e.id === 'moin') living(g).forEach((h) => { h.hp = Math.min(h.maxHp, h.hp + 1); });
-  if (e.id === 'schiet') living(g).filter((h) => !h.gear.includes('friesennerz')).forEach((h) => { if (h.hp > 1) h.hp--; });
+  g.fx.push({ t: 'card', name: e.name, text: e.text });
+  if (e.id === 'moin') living(g).forEach((h) => {
+    if (h.hp < h.maxHp) g.fx.push({ t: 'heal', who: hkey(h), n: 1 });
+    h.hp = Math.min(h.maxHp, h.hp + 1);
+  });
+  if (e.id === 'schiet') living(g).filter((h) => !h.gear.includes('friesennerz')).forEach((h) => {
+    if (h.hp > 1) { h.hp--; g.fx.push({ t: 'hurt', who: hkey(h), n: 1 }); }
+  });
   if (e.id === 'klau') { const h = living(g).find((o) => o.food > 0); if (h) h.food--; }
-  if (e.id === 'knoellchen') addPunkte(g, 1);
+  if (e.id === 'knoellchen') addPunkte(g, 1, 'Falsch geparkt');
   if (e.id === 'verstaerkung') {
     const spots: Pos[] = [];
     for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
@@ -462,7 +506,7 @@ export function* gmTurn(g: Game): Generator<void> {
   playEvent(g);
   if (g.round % 3 === 0) {
     log(g, 'Der Stempel fällt: 1 Punkt in Flensburg.');
-    addPunkte(g, 1);
+    addPunkte(g, 1, 'Der Stempel fällt');
   }
   yield;
   if (g.status !== 'gm') return;
