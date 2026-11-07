@@ -19,6 +19,8 @@ interface Vis {
   hero?: HeroId; monster?: MonsterId; hp: number; maxHp: number; down: boolean; stuck: boolean; blind: boolean; gear: string[];
   /** Piet ist gerade unterwegs zum Gegner. */
   away?: boolean;
+  /** Juni wippt im Stand einen Pixel nach unten; Piet auf der Schulter wippt mit. */
+  bob?: number;
   /** Piets Schulter: -1 links, 1 rechts, dazwischen wechselt er gerade. */
   side?: number;
 }
@@ -558,7 +560,11 @@ export class Board {
     const f = this.p(pos.x + 0.5, pos.y + 0.7), size = f.s * 0.55;
     const t = this.time + v.x * 997, ph = t % PIET_CYCLE, a = t / 520;
     const orbit = { x: f.x + Math.cos(a) * f.s * 0.42, y: f.y - f.s * (1.25 + Math.sin(a) * 0.1) };
-    const seat = { x: f.x + f.s * 0.3 * (v.side ?? (v.flip ? -1 : 1)), y: f.y - f.s * 0.78 - Math.cos((v.side ?? 1) * Math.PI / 2) * f.s * 0.12 };
+    const px = (f.s * 1.2) / SPRITE;
+    const seat = {
+      x: f.x + f.s * 0.3 * (v.side ?? (v.flip ? -1 : 1)),
+      y: f.y - f.s * 0.78 - Math.cos((v.side ?? 1) * Math.PI / 2) * f.s * 0.12 + (v.bob ?? 0) * px,
+    };
     let w = 0, landing = false;
     if (ph < PIET_SIT) w = 1;
     else if (ph < PIET_SIT + PIET_GLIDE) w = 1 - ease((ph - PIET_SIT) / PIET_GLIDE);
@@ -640,7 +646,9 @@ export class Board {
         if (!ghost && v.key === hkey(activeHero(g)) && g.status === 'play') this.ring(pos);
         const walk = 2 + (Math.floor(this.time / 110) % 2);
         const mood = moodOf(v.hp, v.maxHp);
-        this.place(heroSprite(v.hero, v.gear, v.walking ? walk : (beat + n) % 2, v.flip, mood, false), pos);
+        const frame = v.walking ? walk : (beat + n) % 2;
+        v.bob = frame === 1 ? 1 : 0;
+        this.place(heroSprite(v.hero, v.gear, frame, v.flip, mood, false), pos);
         if (mood === 2) this.place(objects.wolke(beat + n), pos, 0.85);
         if (v.hero === 'nordhexe' && !ghost) this.drawPiet(v, pos);
       }
@@ -696,11 +704,16 @@ export class Board {
 
   private ring(p: Pos) {
     const { ctx } = this;
-    const f = this.p(p.x + 0.5, p.y + 0.7);
+    // Ein echter Kreis auf dem Boden, Punkt für Punkt projiziert: vorn größer als hinten, wie die Fliesen.
+    const cx = p.x + 0.5, cy = p.y + 0.6, r = 0.42, n = 40;
     ctx.strokeStyle = '#ffd76a';
-    ctx.lineWidth = Math.max(2, f.s * 0.07);
+    ctx.lineWidth = Math.max(2, this.p(cx, cy).s * 0.07);
     ctx.beginPath();
-    ctx.ellipse(f.x, f.y, f.s * 0.42, f.s * 0.42 * Math.max(0.35, this.view.sin), 0, 0, Math.PI * 2);
+    for (let i = 0; i <= n; i++) {
+      const a = (i / n) * Math.PI * 2, q = this.p(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      if (i) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y);
+    }
+    ctx.closePath();
     ctx.stroke();
   }
 
