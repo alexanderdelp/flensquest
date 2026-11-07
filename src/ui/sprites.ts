@@ -68,6 +68,27 @@ function weapon(p: Painter, d: number, gear: string[], own: (d: number) => void)
 }
 
 const HERO: Record<HeroId, (p: Painter, f: number, gear: string[]) => void> = {
+  juni(p, f, gear) {
+    // Das lange Haar liegt hinter dem Körper und fällt bis zur Taille.
+    const a = f === 1 ? 1 : 0;
+    p(7, 7 + a, 18, 18, '#e9c356');
+    const d = person(p, { shirt: '#2f6fd6', shirtD: '#1f4fa8', pants: '#27408b', boots: '#1c2f66' }, f, gear);
+    if (!gear.includes('friesennerz')) { p(14, 15 + d, 4, 9, '#7fb0f0'); p(9, 21 + d, 14, 1, '#f4f6fb'); }
+    p(9, 3 + d, 14, 5, '#e9c356');
+    p(8, 7 + d, 3, 18, '#e9c356'); p(21, 7 + d, 3, 18, '#e9c356');
+    // Strähnen
+    p(11, 3 + d, 1, 5, '#fff3b8'); p(15, 3 + d, 1, 4, '#fff3b8'); p(19, 3 + d, 1, 5, '#fff3b8');
+    p(13, 3 + d, 1, 3, '#c9942e'); p(17, 3 + d, 1, 4, '#c9942e');
+    p(8, 9 + d, 1, 15, '#fff3b8'); p(10, 8 + d, 1, 14, '#c9942e');
+    p(23, 9 + d, 1, 15, '#fff3b8'); p(21, 8 + d, 1, 14, '#c9942e');
+    p(9, 5 + d, 14, 1, '#2f6fd6');
+    // Sturmlaterne
+    p(3, 18 + d, 5, 1, '#1c2f66'); p(3, 19 + d, 1, 7, '#1c2f66'); p(7, 19 + d, 1, 7, '#1c2f66');
+    p(4, 20 + d, 3, 5, f % 2 ? '#ffd76a' : '#ffb545'); p(5, 21 + d, 1, 3, '#fff2c0'); p(3, 26 + d, 5, 1, '#1c2f66');
+    weapon(p, d, gear, (o) => {
+      p(25, 16 + o, 4, 2, '#d8dde6'); p(28, 16 + o, 2, 3, '#1c2f66'); p(25, 15 + o, 2, 1, '#ff7a3c');
+    });
+  },
   frauke(p, f, gear) {
     const d = person(p, { shirt: '#2c6e8f', shirtD: '#1f5068', pants: '#3b3f55', boots: '#2b2b35' }, f, gear);
     if (!gear.includes('friesennerz')) { p(9, 17 + d, 14, 1, '#e8eef0'); p(9, 20 + d, 14, 1, '#e8eef0'); }
@@ -281,6 +302,10 @@ export const objects = {
   }),
   gummistiefel: () => sprite('o:stiefel', (p) => {
     p(11, 6, 8, 18, '#2e8b57'); p(11, 22, 15, 5, '#2e8b57'); p(11, 27, 16, 2, '#1d5c39'); p(11, 6, 8, 2, '#57b47f');
+  }),
+  sterne: (f: number) => sprite(`o:sterne:${f % 2}`, (p) => {
+    const c = '#ffe27a', o = f % 2 ? 2 : 0;
+    p(7 + o, 6, 2, 2, c); p(21 - o, 4, 2, 2, c); p(14, 2 + o, 2, 2, c); p(25 - o, 9, 1, 1, c); p(5 + o, 11, 1, 1, c);
   }),
   wolke: (f: number) => sprite(`o:wolke:${f % 2}`, (p) => {
     p(9, 12, 15, 7, '#4b5563'); p(6, 14, 22, 6, '#5d6775'); p(12, 9, 9, 5, '#6d7786');

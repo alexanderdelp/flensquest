@@ -17,13 +17,13 @@ const MARK_COLOR = { walk: 'rgba(90,200,170,', use: 'rgba(240,190,70,', foe: 'rg
 interface Vis {
   key: string; x: number; y: number; flip: boolean; walking: boolean;
   dx: number; dy: number; alpha: number; shake: number;
-  hero?: HeroId; monster?: MonsterId; hp: number; maxHp: number; down: boolean; stuck: boolean; gear: string[];
+  hero?: HeroId; monster?: MonsterId; hp: number; maxHp: number; down: boolean; stuck: boolean; blind: boolean; gear: string[];
 }
 interface Floater { x: number; y: number; text: string; color: string; start: number; dur: number }
 interface Shot { x: number; y: number; color: string; size: number }
 
 const SHOT_COLOR: Record<string, string> = {
-  frauke: '#dfe9ee', maren: '#fbfbf5', netz: '#f5ebcd', stempel: '#b5302a',
+  frauke: '#dfe9ee', maren: '#fbfbf5', netz: '#f5ebcd', stempel: '#b5302a', juni: '#ffb545', licht: '#ffe27a',
 };
 
 const WALL = 0.62;
@@ -309,11 +309,11 @@ export class Board {
       const old = this.vis.get(key);
       next.set(key, {
         key, flip: old?.flip ?? false, walking: false, dx: 0, dy: 0, alpha: 1, shake: 0,
-        hp: 1, maxHp: 1, down: false, stuck: false, gear: [], ...o, x: p.x, y: p.y,
+        hp: 1, maxHp: 1, down: false, stuck: false, blind: false, gear: [], ...o, x: p.x, y: p.y,
       });
     };
     g.heroes.forEach((h) => put(hkey(h), h, { hero: h.id, down: h.down, gear: h.gear, hp: h.hp, maxHp: h.maxHp }));
-    g.monsters.forEach((m) => { if (isActive(g, m)) put(mkey(m), m, { monster: m.kind, hp: m.hp, maxHp: m.maxHp, stuck: m.stuck }); });
+    g.monsters.forEach((m) => { if (isActive(g, m)) put(mkey(m), m, { monster: m.kind, hp: m.hp, maxHp: m.maxHp, stuck: m.stuck, blind: !!m.blind }); });
     this.vis = next;
   }
 
@@ -466,7 +466,8 @@ export class Board {
     } else if (v.monster) {
       const frame = v.walking ? Math.floor(this.time / 110) : beat + n;
       this.place(monsterSprite(v.monster, frame, v.flip), pos);
-      if (v.stuck) this.place(objects.netz(), pos);
+      if (v.blind) this.place(objects.sterne(beat + n), pos, 0.45);
+      else if (v.stuck) this.place(objects.netz(), pos);
       if (!ghost) this.bar(pos, v.hp / v.maxHp);
     }
     this.ctx.globalAlpha = 1;
