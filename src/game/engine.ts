@@ -13,6 +13,7 @@ export interface Campaign { heroes: CampaignHero[]; oere: number; chapter: numbe
 export interface Hero extends CampaignHero, Pos {
   hp: number; maxHp: number; charges: number; down: boolean; pfoten: boolean;
 }
+export interface Prop extends Pos { kind: 'fass' | 'kiste' }
 export interface Monster extends Pos {
   uid: number; kind: MonsterId; hp: number; maxHp: number; stuck: boolean; blind?: boolean;
 }
@@ -44,7 +45,7 @@ export interface Game {
   chapter: number; w: number; h: number;
   tiles: string[][]; seen: boolean[][];
   heroes: Hero[]; monsters: Monster[];
-  chests: Pos[]; traps: Pos[];
+  chests: Pos[]; traps: Pos[]; props: Prop[];
   goal: Pos | null; goalTaken: boolean; exit: Pos | null;
   turn: number; tiden: number; steps: number; attacked: boolean; specialUsed: boolean;
   round: number; punkte: number; oere: number; nextUid: number;
@@ -73,12 +74,12 @@ export function newCampaign(ids: HeroId[], gmHuman = false): Campaign {
     oere: 20, chapter: 0, gmHuman,
     heroes: ids.map((id) => {
       const d = HEROES[id];
-      return { id, att: d.att, arm: d.arm, spd: d.spd, food: 1, gear: [] };
+      return { id, att: d.att, arm: d.arm, spd: d.spd, food: 2, gear: [] };
     }),
   };
 }
 
-const HP_SCALE = [0.65, 1, 1.25, 1.5];
+const HP_SCALE = [0.5, 1, 1.25, 1.5];
 
 export function startChapter(c: Campaign, seed = Date.now()): Game {
   const ch = CHAPTERS[c.chapter];
@@ -86,7 +87,7 @@ export function startChapter(c: Campaign, seed = Date.now()): Game {
   const g: Game = {
     chapter: c.chapter, w: ch.map[0].length, h: ch.map.length,
     fx: [], gmHuman: !!c.gmHuman, gmActed: [], gmMoved: [], gmCards: [], gmCardPlayed: false,
-    tiles: [], seen: [], heroes: [], monsters: [], chests: [], traps: [],
+    tiles: [], seen: [], heroes: [], monsters: [], chests: [], traps: [], props: [],
     goal: null, goalTaken: false, exit: null,
     turn: 0, tiden: 0, steps: 0, attacked: false, specialUsed: false,
     round: 1, punkte: 0, oere: c.oere, nextUid: 1,
@@ -102,6 +103,8 @@ export function startChapter(c: Campaign, seed = Date.now()): Game {
       else if (c0 === 'S') starts.push({ x, y });
       else if (c0 === 'T') g.chests.push({ x, y });
       else if (c0 === 't') g.traps.push({ x, y });
+      else if (c0 === 'f') g.props.push({ x, y, kind: 'fass' });
+      else if (c0 === 'x') g.props.push({ x, y, kind: 'kiste' });
       else if (c0 === 'G') g.goal = { x, y };
       else if (MONSTER_CHARS[c0]) spawn(g, MONSTER_CHARS[c0], x, y, HP_SCALE[n - 1]);
       if (c0 === 'X') g.exit = { x, y };
@@ -109,7 +112,7 @@ export function startChapter(c: Campaign, seed = Date.now()): Game {
     });
   });
   g.heroes = c.heroes.map((h, i) => {
-    const hp = HEROES[h.id].hp + (n === 1 ? 4 : 0);
+    const hp = HEROES[h.id].hp + 2 + (n === 1 ? 4 : 0);
     return { ...h, gear: [...h.gear], ...starts[i], hp, maxHp: hp, charges: 2, down: false, pfoten: h.gear.includes('katzenohren') };
   });
   log(g, `Kapitel ${c.chapter + 1}: ${ch.title}`);
@@ -134,6 +137,9 @@ export const heroAt = (g: Game, x: number, y: number) =>
   g.heroes.find((h) => !h.down && h.x === x && h.y === y);
 export const chestAt = (g: Game, x: number, y: number) =>
   g.chests.find((c) => c.x === x && c.y === y);
+export const propAt = (g: Game, x: number, y: number) =>
+  g.props.find((c) => c.x === x && c.y === y);
+const blocked = (g: Game, x: number, y: number) => !!chestAt(g, x, y) || !!propAt(g, x, y);
 
 /** Aufdecken per Flutfüllung: geschlossene Türen begrenzen die Sicht. */
 export function reveal(g: Game) {
@@ -190,7 +196,7 @@ export function reachable(g: Game): Map<string, Pos[]> {
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const x = p.x + dx, y = p.y + dy, k = key(x, y);
       if (done.has(k) || !walkable(tile(g, x, y)) || !g.seen[y][x]) continue;
-      if (monsterAt(g, x, y) || chestAt(g, x, y)) continue;
+      if (monsterAt(g, x, y) || blocked(g, x, y)) continue;
       done.add(k);
       q.push({ p: { x, y }, path: [...path, { x, y }] });
     }
@@ -468,7 +474,7 @@ function pathToward(g: Game, m: Monster, targets: Hero[], range: number): Pos[] 
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const x = p.x + dx, y = p.y + dy, k = key(x, y);
       if (done.has(k) || !walkable(tile(g, x, y))) continue;
-      if (monsterAt(g, x, y) || heroAt(g, x, y) || chestAt(g, x, y)) continue;
+      if (monsterAt(g, x, y) || heroAt(g, x, y) || blocked(g, x, y)) continue;
       done.add(k);
       const next = [...path, { x, y }];
       if (inReach({ x, y })) return next;
@@ -496,7 +502,7 @@ function strike(g: Game, m: Monster, t: Hero) {
   const d = MONSTERS[m.kind];
   const r = rollAttack(g, d.att, t.arm);
   log(g, `${d.name} → ${HEROES[t.id].name}: 🎲 ${r.a}+${r.b}+${d.att} = ${r.total} (nötig ${r.need}) ${r.hit ? `Treffer, ${d.dmg} Schaden` : 'daneben'}`);
-  g.fx.push({ t: 'attack', who: mkey(m), target: hkey(t), shot: d.range > 1 ? 'stempel' : null, a: r.a, b: r.b, total: r.total, need: r.need, hit: r.hit, dmg: d.dmg });
+  g.fx.push({ t: 'attack', who: mkey(m), target: hkey(t), shot: d.range > 1 ? m.kind : null, a: r.a, b: r.b, total: r.total, need: r.need, hit: r.hit, dmg: d.dmg });
   if (!r.hit) return;
   hurtHero(g, t, d.dmg);
   if (m.kind === 'knoellchen' && d6(g) === 6) {
@@ -523,7 +529,7 @@ function playEvent(g: Game, index: number) {
   if (e.id === 'verstaerkung') {
     const spots: Pos[] = [];
     for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
-      if (g.seen[y][x] && walkable(g.tiles[y][x]) && !monsterAt(g, x, y) && !heroAt(g, x, y) && !chestAt(g, x, y)
+      if (g.seen[y][x] && walkable(g.tiles[y][x]) && !monsterAt(g, x, y) && !heroAt(g, x, y) && !blocked(g, x, y)
         && Math.min(...living(g).map((h) => dist(h, { x, y }))) >= 4) spots.push({ x, y });
     }
     if (spots.length) {
@@ -551,7 +557,7 @@ export function* gmTurn(g: Game): Generator<void> {
 }
 
 function stamp(g: Game) {
-  if (g.round % 3 !== 0) return;
+  if (g.round % 4 !== 0) return;
   log(g, 'Der Stempel fällt: 1 Punkt in Flensburg.');
   addPunkte(g, 1, 'Der Stempel fällt');
 }
@@ -599,7 +605,7 @@ export function gmReachable(g: Game, m: Monster): Map<string, Pos[]> {
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const x = p.x + dx, y = p.y + dy, k = key(x, y);
       if (done.has(k) || !walkable(tile(g, x, y)) || !g.seen[y][x]) continue;
-      if (monsterAt(g, x, y) || heroAt(g, x, y) || chestAt(g, x, y)) continue;
+      if (monsterAt(g, x, y) || heroAt(g, x, y) || blocked(g, x, y)) continue;
       done.add(k);
       q.push({ p: { x, y }, path: [...path, { x, y }] });
     }

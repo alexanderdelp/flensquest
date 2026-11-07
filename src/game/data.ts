@@ -1,5 +1,5 @@
 export type HeroId = 'frauke' | 'joern' | 'maren' | 'hinnerk' | 'juni';
-export type MonsterId = 'moewe' | 'knoellchen' | 'rumgeist' | 'qualle' | 'klabauter' | 'obermeister';
+export type MonsterId = 'moewe' | 'knoellchen' | 'rumgeist' | 'qualle' | 'klabauter' | 'obermeister' | 'ratte' | 'schmuggler' | 'krabbe';
 
 export interface HeroDef {
   id: HeroId;
@@ -64,12 +64,16 @@ export const MONSTERS: Record<MonsterId, MonsterDef> = {
   knoellchen: { id: 'knoellchen', name: 'Knöllchenkobold', icon: '🧾', hp: 3, att: 2, arm: 1, spd: 3, dmg: 1, range: 1, reward: 5 },
   rumgeist: { id: 'rumgeist', name: 'Rumgeist', icon: '👻', hp: 4, att: 3, arm: 2, spd: 3, dmg: 2, range: 1, reward: 8 },
   qualle: { id: 'qualle', name: 'Förde-Qualle', icon: '🦑', hp: 6, att: 2, arm: 0, spd: 2, dmg: 2, range: 1, reward: 6 },
+  ratte: { id: 'ratte', name: 'Hafenratte', icon: '🐀', hp: 1, att: 1, arm: 0, spd: 6, dmg: 1, range: 1, reward: 2 },
+  schmuggler: { id: 'schmuggler', name: 'Rumschmuggler', icon: '🍾', hp: 4, att: 2, arm: 1, spd: 3, dmg: 1, range: 3, reward: 7 },
+  krabbe: { id: 'krabbe', name: 'Panzerkrabbe', icon: '🦀', hp: 5, att: 2, arm: 3, spd: 2, dmg: 2, range: 1, reward: 8 },
   klabauter: { id: 'klabauter', name: 'Klabauter', icon: '😈', hp: 7, att: 3, arm: 2, spd: 4, dmg: 2, range: 1, reward: 20 },
   obermeister: { id: 'obermeister', name: 'Oberpunktezähler', icon: '👔', hp: 16, att: 5, arm: 3, spd: 3, dmg: 3, range: 3, reward: 60 },
 };
 
 export const MONSTER_CHARS: Record<string, MonsterId> = {
   m: 'moewe', k: 'knoellchen', r: 'rumgeist', q: 'qualle', K: 'klabauter', B: 'obermeister',
+  a: 'ratte', s: 'schmuggler', c: 'krabbe',
 };
 
 export interface ShopItem {
@@ -104,7 +108,7 @@ export interface Chapter {
 
 /*
  Kartenzeichen: # Wand, . Boden, D Tür, H verborgene Tür, S Start, X Ausgang,
- T Truhe, t Falle, G Ziel-Gegenstand, Kleinbuchstaben/K/B siehe MONSTER_CHARS.
+ T Truhe, t Falle, G Ziel-Gegenstand, f Fass, x Kiste, Kleinbuchstaben/K/B siehe MONSTER_CHARS.
 */
 export const CHAPTERS: Chapter[] = [
   {
@@ -117,18 +121,18 @@ export const CHAPTERS: Chapter[] = [
     reward: 30,
     map: [
       '########################',
-      '#SS..#.....#......#..T.#',
+      '#SS..#f...x#......#..T.#',
       '#SS..D..m..D..k...D....#',
-      '#....#.....#......#....#',
+      '#....#.....#...s..#...f#',
       '###D####D#####D#####D###',
-      '#......................#',
-      '#......................#',
+      '#................a.....#',
+      '#........a.............#',
       '###D######D####D####H###',
       '#T...#......#.....#....#',
       '#.t..#..k...#..m..#..G.#',
       '#....D......D.....D..r.#',
-      '#....#......#.....#....#',
-      '#..X.#..T...#.....#.T..#',
+      '#x...#...c..#.....#....#',
+      '#..X.#..T...#...f.#.T..#',
       '########################',
     ],
   },
@@ -142,18 +146,18 @@ export const CHAPTERS: Chapter[] = [
     reward: 40,
     map: [
       '########################',
-      '#.T.#......#......#..T.#',
-      '#...#..r...#..m...#....#',
+      '#.T.#.f....#......#..T.#',
+      '#...#..r...#..m.s.#....#',
       '#...D......D......D..k.#',
       '#####..m...###D####....#',
-      '#SS.#......#......###D##',
+      '#SS.#......#.....x###D##',
       '#SS.D......#...m..#....#',
       '#...#####D##......#.t..#',
-      '#.t.#......#......D....#',
+      '#.t.#.....x#..c...D...f#',
       '#...#..k...###D####....#',
-      '##D##......#......##D###',
+      '##D##...a..#......##D###',
       '#...D..t...D..k...#....#',
-      '#T..#......#......D.K..#',
+      '#T..#.f....#...s..D.K..#',
       '########################',
     ],
   },
@@ -167,18 +171,18 @@ export const CHAPTERS: Chapter[] = [
     reward: 45,
     map: [
       '########################',
-      '#SS.#.......#.......#T.#',
+      '#SS.#f......#.....s.#T.#',
       '#SS.D...k...D..r....H..#',
-      '#...#.......#.......#..#',
+      '#...#....a.x#......f#..#',
       '#...###D#####.t.#####D##',
-      '#...#.....#.....#......#',
+      '#...#.....#..c..#.....f#',
       '##D##..q..D..m..D..k...#',
-      '#...#.....#.....#......#',
+      '#...#.....#x....#....a.#',
       '#.t.###D#####D###.m....#',
-      '#...#.......#...###D####',
+      '#...#x......#...###D####',
       '#.T.D..r....#.t.#......#',
       '#####...t...H...D...G..#',
-      '#X..D.......#...#..r...#',
+      '#X..D....s..#...#..r..f#',
       '########################',
     ],
   },
@@ -192,18 +196,18 @@ export const CHAPTERS: Chapter[] = [
     reward: 55,
     map: [
       '########################',
-      '#.G..#.....D.....#..T..#',
+      '#.G..#x....D.....#..T.x#',
       '#.r..#..r..#..k..D..r..#',
-      '#....D.....#.....#.....#',
-      '#.K..#.....#.....#.....#',
+      '#....D.....#..s..#.....#',
+      '#.K.x#..c..#....f#.....#',
       '###D###D#####D#####D####',
-      '#...........t..........#',
-      '#.......m........m.....#',
+      '#...a.......t..........#',
+      '#.......m........m.a...#',
       '###D#####D####D######D##',
-      '#.T..#.....#.....#.....#',
+      '#.Ts.#.....#....x#.....#',
       '#....#..k..D..q..D..t..#',
       '#.r..D.....#.....#.....#',
-      '#....#..SS.#..X..#..T..#',
+      '#f...#..SS.#..X..#..T.f#',
       '########SS##############',
     ],
   },
@@ -218,17 +222,17 @@ export const CHAPTERS: Chapter[] = [
     map: [
       '########################',
       '#SS.D....k.#.t....#..T.#',
-      '#SS.#......D...r..D....#',
-      '#...#..m...#......#.k..#',
+      '#SS.#....a.D...r..D....#',
+      '#...#x.m...#....f.#.k..#',
       '##D###D######D#####D####',
-      '#.....#............#...#',
+      '#.....#x.........s.#...#',
       '#..r..D....q...t...D.T.#',
-      '#.....#............#...#',
+      '#x....#...c.......f#...#',
       '##D###D######D#####D####',
-      '#...#......#......#....#',
+      '#...#.f....#...s..#.a..#',
       '#.t.D..K...D..r...D..m.#',
       '#...#......###D####....#',
-      '#.T.#.t....#B.....D..r.#',
+      '#.T.#ft....#B.....D..rx#',
       '########################',
     ],
   },

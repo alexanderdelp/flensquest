@@ -20,7 +20,7 @@ describe('Karten', () => {
     while (stack.length) {
       const p = stack.pop()!;
       const k = `${p.x},${p.y}`;
-      if (open.has(k) || E.tile(g, p.x, p.y) === '#') continue;
+      if (open.has(k) || E.tile(g, p.x, p.y) === '#' || E.propAt(g, p.x, p.y)) continue;
       open.add(k);
       stack.push({ x: p.x + 1, y: p.y }, { x: p.x - 1, y: p.y }, { x: p.x, y: p.y + 1 }, { x: p.x, y: p.y - 1 });
     }
@@ -34,10 +34,25 @@ describe('Karten', () => {
 });
 
 describe('Regeln', () => {
+  it('Fässer und Kisten blockieren den Weg', () => {
+    const g = play(['joern']);
+    const h = E.activeHero(g);
+    g.props = [{ x: h.x + 2, y: h.y, kind: 'fass' }];
+    expect(E.reachable(g).has(`${h.x + 2},${h.y}`)).toBe(false);
+  });
+
+  it('Rumschmuggler wirft aus der Ferne', () => {
+    expect(MONSTERS.schmuggler.range).toBeGreaterThan(1);
+    const g = play(['joern', 'maren'], 0, 7);
+    expect(g.monsters.some((m) => m.kind === 'schmuggler')).toBe(true);
+    expect(g.monsters.some((m) => m.kind === 'ratte')).toBe(true);
+    expect(g.monsters.some((m) => m.kind === 'krabbe')).toBe(true);
+  });
+
   it('Start: Helden auf Startfeldern, Tiden nach Spielerzahl', () => {
     expect(play(ALL).tiden).toBe(3);
     expect(play(['joern']).tiden).toBe(4);
-    expect(play(['joern']).heroes[0].maxHp).toBe(HEROES.joern.hp + 4);
+    expect(play(['joern']).heroes[0].maxHp).toBe(HEROES.joern.hp + 6);
   });
 
   it('Bewegung verbraucht Tiden und angebrochene Tide reicht weiter', () => {
