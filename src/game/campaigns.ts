@@ -6,6 +6,8 @@ export interface CampaignDef {
   id: string;
   title: string;
   blurb: string;
+  /** Auswahlbild in public/img. */
+  image: string;
   chapters: Chapter[];
   events: EventCard[];
   /** Einleitung vor dem ersten Kapitel. */
@@ -20,6 +22,7 @@ export const CAMPAIGNS: CampaignDef[] = [
   {
     id: 'hafen',
     title: 'Der Fall Hafenlogbuch',
+    image: 'img/kampagne-hafen.webp',
     blurb: 'Fünf Kapitel von der Hafenspitze bis ins Punktearchiv. Der ursprüngliche Einstieg in FlensQuest.',
     chapters: CHAPTERS,
     events: EVENTS,
@@ -27,6 +30,7 @@ export const CAMPAIGNS: CampaignDef[] = [
   {
     id: 'akte',
     title: 'Die Akte Förde',
+    image: 'img/kampagne-akte.webp',
     blurb: 'Das Geheimnis der verschwundenen Punkte: Sechs Missionen quer durch Flensburg, mit Fälschern, Möwenbanden und einem Oberarchivar.',
     chapters: AKTE_CHAPTERS,
     events: AKTE_EVENTS,
